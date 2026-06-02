@@ -1,0 +1,43 @@
+# Secrets — never commit
+infra/azure/parameters.json
+infra/azure/parameters.*.json
+!infra/azure/parameters.example.json
+.env
+.env.*
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Node (web-frontend, if you add a build step later)
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Azure / Docker scratch
+*.tar
+.azure/
+
+# Logs / local
+*.log
+/tmp/
+
+# Secrets — never commit
+infra/azure/parameters.json
+infra/azure/parameters.*.json
+!infra/azure/parameters.example.json

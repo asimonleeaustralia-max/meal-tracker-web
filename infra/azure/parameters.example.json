@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix":        { "value": "mealtracker" },
+    "pgAdminUser":       { "value": "mealadmin" },
+    "pgAdminPassword":   { "value": "REPLACE_BEFORE_DEPLOY" },
+    "jwtSecret":         { "value": "REPLACE_WITH_64_BYTE_RANDOM" },
+    "imageTag":          { "value": "v1" },
+    "googleClientId":    { "value": "" },
+    "googleClientSecret":{ "value": "" },
+    "appleClientId":     { "value": "" },
+    "applePrivateKey":   { "value": "" },
+    "facebookClientId":  { "value": "" },
+    "facebookClientSecret":{ "value": "" },
+    "runpodEndpointUrl": { "value": "" },
+    "runpodApiKey":      { "value": "" }
+  }
+}

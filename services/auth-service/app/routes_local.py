@@ -1,0 +1,164 @@
+"""Local (email/password) auth endpoints + token refresh."""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from mealtracker_shared.schemas import TokenPair, UserPublic
+from mealtracker_shared.security import (
+    issue_access_token,
+    issue_refresh_token,
+    verify_token,
+)
+
+from .config import Settings, get_settings
+from .deps import current_user_id, get_db
+from .models import RefreshToken, User
+from .passwords import hash_password, verify_password
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    display_name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+async def _issue_pair(
+    user: User, settings: Settings, db: AsyncSession
+) -> TokenPair:
+    access = issue_access_token(
+        user_id=user.id,
+        email=user.email,
+        secret=settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+        issuer=settings.jwt_issuer,
+        minutes=settings.jwt_access_token_minutes,
+    )
+    refresh = issue_refresh_token(
+        user_id=user.id,
+        secret=settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+        issuer=settings.jwt_issuer,
+        days=settings.jwt_refresh_token_days,
+    )
+
+    # Persist the refresh JTI so we can revoke it later
+    decoded = verify_token(
+        refresh,
+        secret=settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+        issuer=settings.jwt_issuer,
+        expected_type="refresh",
+    )
+    db.add(
+        RefreshToken(
+            jti=uuid.UUID(decoded.jti),
+            user_id=user.id,
+            issued_at=datetime.fromtimestamp(decoded.iat, tz=timezone.utc),
+            expires_at=datetime.fromtimestamp(decoded.exp, tz=timezone.utc),
+        )
+    )
+
+    return TokenPair(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=settings.jwt_access_token_minutes * 60,
+    )
+
+
+@router.post("/signup", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
+async def signup(
+    payload: SignupRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> TokenPair:
+    # Reject duplicates
+    existing = await db.scalar(select(User).where(User.email == payload.email))
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with that email already exists",
+        )
+    user = User(
+        email=payload.email,
+        display_name=payload.display_name,
+        password_hash=hash_password(payload.password),
+    )
+    db.add(user)
+    await db.flush()
+    return await _issue_pair(user, settings, db)
+
+
+@router.post("/login", response_model=TokenPair)
+async def login(
+    payload: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> TokenPair:
+    user = await db.scalar(select(User).where(User.email == payload.email))
+    if user is None or user.password_hash is None or not verify_password(
+        payload.password, user.password_hash
+    ):
+        # Single generic message so we don't leak which half is wrong
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User disabled")
+    return await _issue_pair(user, settings, db)
+
+
+@router.post("/refresh", response_model=TokenPair)
+async def refresh(
+    payload: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> TokenPair:
+    decoded = verify_token(
+        payload.refresh_token,
+        secret=settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+        issuer=settings.jwt_issuer,
+        expected_type="refresh",
+    )
+    stored = await db.get(RefreshToken, uuid.UUID(decoded.jti))
+    if stored is None or stored.revoked:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token revoked or unknown",
+        )
+    user = await db.get(User, uuid.UUID(decoded.sub))
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User missing")
+
+    # Rotate: revoke the old refresh, issue a new pair
+    stored.revoked = True
+    return await _issue_pair(user, settings, db)
+
+
+@router.get("/me", response_model=UserPublic)
+async def me(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> UserPublic:
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserPublic.model_validate(user)

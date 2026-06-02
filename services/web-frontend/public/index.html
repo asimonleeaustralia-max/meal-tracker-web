@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MealTracker Web</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>MealTracker</h1>
+    <div id="user-bar"></div>
+  </header>
+
+  <main>
+    <!-- LOGIN / SIGNUP -->
+    <section id="auth-section">
+      <div class="card">
+        <h2>Sign in</h2>
+        <div id="login-error" class="error" hidden></div>
+
+        <form id="login-form">
+          <label>Email <input type="email" name="email" required autocomplete="username"></label>
+          <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
+          <button type="submit">Sign in</button>
+          <button type="button" id="signup-btn" class="ghost">Create account</button>
+        </form>
+
+        <div class="oauth-row">
+          <a class="oauth-btn google"   href="/api/auth/oauth/google/login">Continue with Google</a>
+          <a class="oauth-btn apple"    href="/api/auth/oauth/apple/login">Continue with Apple</a>
+          <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login">Continue with Facebook</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUTHENTICATED APP -->
+    <section id="app-section" hidden>
+      <div class="card">
+        <h2>Analyze a meal photo</h2>
+        <input type="file" id="meal-photo" accept="image/*" />
+        <button id="analyze-btn">Recognise &amp; lookup nutrition</button>
+        <pre id="analyze-output"></pre>
+      </div>
+
+      <div class="card">
+        <h2>Your meals</h2>
+        <button id="refresh-meals">Refresh</button>
+        <table id="meals-table">
+          <thead><tr><th>Date</th><th>Title</th><th>kcal</th><th>P</th><th>C</th><th>F</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

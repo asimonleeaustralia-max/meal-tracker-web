@@ -1,0 +1,130 @@
+# Local development orchestration.
+#
+# All services share a single Postgres instance and a single JWT secret so the
+# gateway and downstream services agree on tokens. In production each Container
+# App gets its own env vars (see infra/azure/deploy.sh).
+#
+# Run:
+#     cp .env.example .env   # fill in OAuth + RunPod creds (optional in dev)
+#     docker compose up --build
+#
+# Reachable from your browser:
+#     http://localhost:3000   → web frontend
+#     http://localhost:8080   → api-gateway (Swagger at /docs)
+#     http://localhost:8001..8004 → each service's Swagger (for debugging only)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mealtracker
+      POSTGRES_PASSWORD: mealtracker
+      POSTGRES_DB: mealtracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mealtracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://mealtracker:mealtracker@postgres:5432/mealtracker
+      JWT_SECRET: ${JWT_SECRET:-dev-only-shared-secret-change-me}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-session-secret}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  meal-service:
+    build:
+      context: .
+      dockerfile: services/meal-service/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://mealtracker:mealtracker@postgres:5432/mealtracker
+      JWT_SECRET: ${JWT_SECRET:-dev-only-shared-secret-change-me}
+      BLOB_ACCOUNT_URL: ${BLOB_ACCOUNT_URL:-}
+      BLOB_ACCOUNT_KEY: ${BLOB_ACCOUNT_KEY:-}
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nutrition-service:
+    build:
+      context: .
+      dockerfile: services/nutrition-service/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://mealtracker:mealtracker@postgres:5432/mealtracker
+      JWT_SECRET: ${JWT_SECRET:-dev-only-shared-secret-change-me}
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  vision-service:
+    build:
+      context: .
+      dockerfile: services/vision-service/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      JWT_SECRET: ${JWT_SECRET:-dev-only-shared-secret-change-me}
+      NUTRITION_SERVICE_URL: http://nutrition-service:8003
+      RUNPOD_ENDPOINT_URL: ${RUNPOD_ENDPOINT_URL:-}
+      RUNPOD_API_KEY: ${RUNPOD_API_KEY:-}
+      ALLOW_STUB_MODE: "true"
+    ports:
+      - "8004:8004"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      JWT_SECRET: ${JWT_SECRET:-dev-only-shared-secret-change-me}
+      AUTH_SERVICE_URL: http://auth-service:8001
+      MEAL_SERVICE_URL: http://meal-service:8002
+      NUTRITION_SERVICE_URL: http://nutrition-service:8003
+      VISION_SERVICE_URL: http://vision-service:8004
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - meal-service
+      - nutrition-service
+      - vision-service
+
+  web-frontend:
+    build:
+      context: .
+      dockerfile: services/web-frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+
+volumes:
+  pgdata:

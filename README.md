@@ -1,6 +1,6 @@
-# MealTracker Web — Microservices Backend
+# MacrosSimple — Microservices Backend
 
-A Python/FastAPI microservices backend that complements the **MealTracker iOS app**. Designed to sync with the iOS Core Data model (`Meal`, `Person`, `MealPhoto`), recognize meal contents from photos via a vision model running on **RunPod**, and resolve nutritional values from a reference database.
+A Python/FastAPI microservices backend that complements the **MacrosSimple iOS app**. Designed to sync with the iOS Core Data model (`Meal`, `Person`, `MealPhoto`), recognize meal contents from photos via a vision model running on **RunPod**, and resolve nutritional values from a reference database.
 
 ## Architecture overview
 

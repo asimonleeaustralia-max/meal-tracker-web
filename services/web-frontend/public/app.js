@@ -183,17 +183,28 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
   const okEl = document.getElementById("add-meal-success");
   errEl.hidden = true; okEl.hidden = true;
 
-  const fd = new FormData(e.target);
-  // datetime-local has no timezone — append :00 seconds and let backend parse as local-as-UTC.
-  // For a single-user web app this is fine; iOS app uses real timezone-aware dates.
+  const form = e.target;
+  const fd = new FormData(form);
+
+  // Build payload from every form field. Numeric fields go in only if non-zero;
+  // is_guess flags only if the field is present (form has checkboxes for them).
   const payload = {
     title: fd.get("title"),
     date: new Date(fd.get("date")).toISOString(),
-    calories: Number(fd.get("calories")) || 0,
-    protein: Number(fd.get("protein")) || 0,
-    carbohydrates: Number(fd.get("carbohydrates")) || 0,
-    fat: Number(fd.get("fat")) || 0,
   };
+  const productName = fd.get("product_name");
+  if (productName) payload.product_name = productName;
+
+  // Walk every number/checkbox input on the form and include non-default values.
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.type === "number") {
+      const v = Number(el.value);
+      if (!Number.isNaN(v) && v !== 0) payload[el.name] = v;
+    } else if (el.type === "checkbox" && el.name.endsWith("_is_guess")) {
+      if (el.checked) payload[el.name] = true;
+    }
+  }
 
   const r = await api("/meals", {
     method: "POST",
@@ -206,10 +217,25 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
   }
   okEl.textContent = "Meal saved.";
   okEl.hidden = false;
-  e.target.reset();
+  form.reset();
+  // Re-collapse all detail panels after a save
+  for (const d of form.querySelectorAll("details")) d.removeAttribute("open");
   setDefaultMealDate();
   refreshMeals();
 };
+
+// Reset button — also collapses detail panels
+const resetBtn = document.getElementById("reset-meal-form");
+if (resetBtn) {
+  resetBtn.onclick = () => {
+    const form = document.getElementById("add-meal-form");
+    form.reset();
+    for (const d of form.querySelectorAll("details")) d.removeAttribute("open");
+    setDefaultMealDate();
+    document.getElementById("add-meal-error").hidden = true;
+    document.getElementById("add-meal-success").hidden = true;
+  };
+}
 
 document.getElementById("fill-from-analysis").onclick = () => {
   if (!lastAnalysis || !lastAnalysis.nutrition) {

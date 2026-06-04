@@ -144,3 +144,68 @@ header h1.brand::after {
 header {
   padding: 16px 24px;
 }
+
+/* Nutrient grid: two columns on wide, one on narrow */
+.nutrient-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+@media (max-width: 480px) {
+  .nutrient-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.nutrient {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+.nutrient label:first-child {
+  flex: 1;
+}
+.nutrient label.guess {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  padding-bottom: 10px;
+}
+.nutrient label.guess input[type="checkbox"] {
+  margin: 0;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+}
+
+/* Collapsible sections */
+details {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  background: #fafbfc;
+}
+details[open] {
+  background: var(--card);
+}
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--fg);
+  padding: 4px 0;
+  user-select: none;
+}
+details > summary:hover {
+  color: var(--accent);
+}
+details[open] > summary {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}

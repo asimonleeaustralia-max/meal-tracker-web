@@ -37,103 +37,223 @@
     <!-- AUTHENTICATED APP -->
     <section id="app-section" hidden>
       <div class="card">
-        <h2>Analyze a meal photo</h2>
-        <input type="file" id="meal-photo" accept="image/*" />
-        <button id="analyze-btn">Recognise &amp; lookup nutrition</button>
-        <pre id="analyze-output"></pre>
-      </div>
-
-      <div class="card">
         <h2>Add a meal</h2>
         <div id="add-meal-error" class="error" hidden></div>
         <div id="add-meal-success" class="success" hidden></div>
         <form id="add-meal-form">
-          <!-- BASICS -->
           <label>Title <input type="text" name="title" placeholder="e.g. Lunch — chicken salad" required></label>
           <label>Date &amp; time <input type="datetime-local" name="date" required></label>
-          <label>Product name (optional) <input type="text" name="product_name" placeholder="e.g. Sainsbury's Greek yoghurt"></label>
 
-          <div class="nutrient-grid">
-            <div class="nutrient"><label>Calories <input type="number" name="calories" min="0" step="any" value="0" required></label><label class="guess"><input type="checkbox" name="calories_is_guess">guess</label></div>
-            <div class="nutrient"><label>Sodium (mg) <input type="number" name="sodium" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="sodium_is_guess">guess</label></div>
-            <div class="nutrient"><label>Protein (g) <input type="number" name="protein" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="protein_is_guess">guess</label></div>
-            <div class="nutrient"><label>Carbs (g) <input type="number" name="carbohydrates" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="carbohydrates_is_guess">guess</label></div>
-            <div class="nutrient"><label>Fat (g) <input type="number" name="fat" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="fat_is_guess">guess</label></div>
+          <div class="field-row">
+            <label class="field-label">Calories</label>
+            <input type="number" name="calories" min="0" step="any" value="0" required>
+            <div class="guess-toggle" data-target="calories_is_guess">
+              <input type="checkbox" name="calories_is_guess" checked>
+              <span class="guess-track"><span class="guess-thumb"></span></span>
+              <span class="guess-state">guess</span>
+            </div>
+          </div>
+          <div class="field-row">
+            <label class="field-label">Sodium (mg)</label>
+            <input type="number" name="sodium" min="0" step="any" value="0">
+            <div class="guess-toggle" data-target="sodium_is_guess">
+              <input type="checkbox" name="sodium_is_guess" checked>
+              <span class="guess-track"><span class="guess-thumb"></span></span>
+              <span class="guess-state">guess</span>
+            </div>
           </div>
 
-          <!-- CARBS BREAKDOWN -->
-          <details>
-            <summary>Carbs breakdown</summary>
-            <div class="nutrient-grid">
-              <div class="nutrient"><label>Starch (g) <input type="number" name="starch" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="starch_is_guess">guess</label></div>
-              <div class="nutrient"><label>Sugars (g) <input type="number" name="sugars" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="sugars_is_guess">guess</label></div>
-              <div class="nutrient"><label>Fibre (g) <input type="number" name="fibre" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="fibre_is_guess">guess</label></div>
+          <div class="field-group">
+            <div class="field-row">
+              <label class="field-label parent">Carbs (g)</label>
+              <input type="number" name="carbohydrates" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="carbohydrates_is_guess">
+                <input type="checkbox" name="carbohydrates_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
             </div>
-          </details>
-
-          <!-- FATS BREAKDOWN -->
-          <details>
-            <summary>Fats breakdown</summary>
-            <div class="nutrient-grid">
-              <div class="nutrient"><label>Monounsaturated (g) <input type="number" name="monounsaturated_fat" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="monounsaturated_fat_is_guess">guess</label></div>
-              <div class="nutrient"><label>Polyunsaturated (g) <input type="number" name="polyunsaturated_fat" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="polyunsaturated_fat_is_guess">guess</label></div>
-              <div class="nutrient"><label>Saturated (g) <input type="number" name="saturated_fat" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="saturated_fat_is_guess">guess</label></div>
-              <div class="nutrient"><label>Trans (g) <input type="number" name="trans_fat" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="trans_fat_is_guess">guess</label></div>
-              <div class="nutrient"><label>Omega-3 (g) <input type="number" name="omega3" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="omega3_is_guess">guess</label></div>
-              <div class="nutrient"><label>Omega-6 (g) <input type="number" name="omega6" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="omega6_is_guess">guess</label></div>
+            <div class="field-row child">
+              <label class="field-label">Starch (g)</label>
+              <input type="number" name="starch" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="starch_is_guess">
+                <input type="checkbox" name="starch_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
             </div>
-          </details>
-
-          <!-- PROTEIN BREAKDOWN -->
-          <details>
-            <summary>Protein breakdown</summary>
-            <div class="nutrient-grid">
-              <div class="nutrient"><label>Animal protein (g) <input type="number" name="animal_protein" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="animal_protein_is_guess">guess</label></div>
-              <div class="nutrient"><label>Plant protein (g) <input type="number" name="plant_protein" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="plant_protein_is_guess">guess</label></div>
-              <div class="nutrient"><label>Protein supplements (g) <input type="number" name="protein_supplements" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="protein_supplements_is_guess">guess</label></div>
-              <div class="nutrient"><label>A2 β-casein (g) <input type="number" name="a2_beta_casein" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="a2_beta_casein_is_guess">guess</label></div>
-              <div class="nutrient"><label>A1 β-casein (g) <input type="number" name="a1_beta_casein" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="a1_beta_casein_is_guess">guess</label></div>
+            <div class="field-row child">
+              <label class="field-label">Sugars (g)</label>
+              <input type="number" name="sugars" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="sugars_is_guess">
+                <input type="checkbox" name="sugars_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
             </div>
-          </details>
+            <div class="field-row child">
+              <label class="field-label">Fibre (g)</label>
+              <input type="number" name="fibre" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="fibre_is_guess">
+                <input type="checkbox" name="fibre_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+          </div>
 
-          <!-- STIMULANTS & SPECIALS -->
+          <div class="field-group">
+            <div class="field-row">
+              <label class="field-label parent">Fat (g)</label>
+              <input type="number" name="fat" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="fat_is_guess">
+                <input type="checkbox" name="fat_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Monounsaturated (g)</label>
+              <input type="number" name="monounsaturated_fat" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="monounsaturated_fat_is_guess">
+                <input type="checkbox" name="monounsaturated_fat_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Polyunsaturated (g)</label>
+              <input type="number" name="polyunsaturated_fat" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="polyunsaturated_fat_is_guess">
+                <input type="checkbox" name="polyunsaturated_fat_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Saturated (g)</label>
+              <input type="number" name="saturated_fat" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="saturated_fat_is_guess">
+                <input type="checkbox" name="saturated_fat_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Trans (g)</label>
+              <input type="number" name="trans_fat" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="trans_fat_is_guess">
+                <input type="checkbox" name="trans_fat_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Omega-3 (g)</label>
+              <input type="number" name="omega3" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="omega3_is_guess">
+                <input type="checkbox" name="omega3_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Omega-6 (g)</label>
+              <input type="number" name="omega6" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="omega6_is_guess">
+                <input type="checkbox" name="omega6_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-row">
+              <label class="field-label parent">Protein (g)</label>
+              <input type="number" name="protein" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="protein_is_guess">
+                <input type="checkbox" name="protein_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Animal protein (g)</label>
+              <input type="number" name="animal_protein" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="animal_protein_is_guess">
+                <input type="checkbox" name="animal_protein_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Plant protein (g)</label>
+              <input type="number" name="plant_protein" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="plant_protein_is_guess">
+                <input type="checkbox" name="plant_protein_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">Protein supplements (g)</label>
+              <input type="number" name="protein_supplements" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="protein_supplements_is_guess">
+                <input type="checkbox" name="protein_supplements_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">A2 β-casein (g)</label>
+              <input type="number" name="a2_beta_casein" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="a2_beta_casein_is_guess">
+                <input type="checkbox" name="a2_beta_casein_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+            <div class="field-row child">
+              <label class="field-label">A1 β-casein (g)</label>
+              <input type="number" name="a1_beta_casein" min="0" step="any" value="0">
+              <div class="guess-toggle" data-target="a1_beta_casein_is_guess">
+                <input type="checkbox" name="a1_beta_casein_is_guess" checked>
+                <span class="guess-track"><span class="guess-thumb"></span></span>
+                <span class="guess-state">guess</span>
+              </div>
+            </div>
+          </div>
+
           <details>
             <summary>Stimulants &amp; specials</summary>
-            <div class="nutrient-grid">
-              <div class="nutrient"><label>Alcohol (g) <input type="number" name="alcohol" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="alcohol_is_guess">guess</label></div>
-              <div class="nutrient"><label>Nicotine (mg) <input type="number" name="nicotine" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="nicotine_is_guess">guess</label></div>
-              <div class="nutrient"><label>Theobromine (mg) <input type="number" name="theobromine" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="theobromine_is_guess">guess</label></div>
-              <div class="nutrient"><label>Caffeine (mg) <input type="number" name="caffeine" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="caffeine_is_guess">guess</label></div>
-              <div class="nutrient"><label>Taurine (mg) <input type="number" name="taurine" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="taurine_is_guess">guess</label></div>
-              <div class="nutrient"><label>Creatine (g) <input type="number" name="creatine" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="creatine_is_guess">guess</label></div>
-            </div>
+            <div class="field-row"><label class="field-label">Alcohol (g)</label><input type="number" name="alcohol" min="0" step="any" value="0"><div class="guess-toggle" data-target="alcohol_is_guess"><input type="checkbox" name="alcohol_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Nicotine (mg)</label><input type="number" name="nicotine" min="0" step="any" value="0"><div class="guess-toggle" data-target="nicotine_is_guess"><input type="checkbox" name="nicotine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Theobromine (mg)</label><input type="number" name="theobromine" min="0" step="any" value="0"><div class="guess-toggle" data-target="theobromine_is_guess"><input type="checkbox" name="theobromine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Caffeine (mg)</label><input type="number" name="caffeine" min="0" step="any" value="0"><div class="guess-toggle" data-target="caffeine_is_guess"><input type="checkbox" name="caffeine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Taurine (mg)</label><input type="number" name="taurine" min="0" step="any" value="0"><div class="guess-toggle" data-target="taurine_is_guess"><input type="checkbox" name="taurine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Creatine (g)</label><input type="number" name="creatine" min="0" step="any" value="0"><div class="guess-toggle" data-target="creatine_is_guess"><input type="checkbox" name="creatine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
           </details>
 
-          <!-- VITAMINS -->
           <details>
             <summary>Vitamins</summary>
-            <div class="nutrient-grid">
-              <div class="nutrient"><label>Vitamin A (mg) <input type="number" name="vitamin_a" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="vitamin_a_is_guess">guess</label></div>
-              <div class="nutrient"><label>Vitamin B (mg) <input type="number" name="vitamin_b" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="vitamin_b_is_guess">guess</label></div>
-              <div class="nutrient"><label>Vitamin C (mg) <input type="number" name="vitamin_c" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="vitamin_c_is_guess">guess</label></div>
-              <div class="nutrient"><label>Vitamin D (mg) <input type="number" name="vitamin_d" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="vitamin_d_is_guess">guess</label></div>
-              <div class="nutrient"><label>Vitamin E (mg) <input type="number" name="vitamin_e" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="vitamin_e_is_guess">guess</label></div>
-              <div class="nutrient"><label>Vitamin K (mg) <input type="number" name="vitamin_k" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="vitamin_k_is_guess">guess</label></div>
-            </div>
+            <div class="field-row"><label class="field-label">Vitamin A (mg)</label><input type="number" name="vitamin_a" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_a_is_guess"><input type="checkbox" name="vitamin_a_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Vitamin B (mg)</label><input type="number" name="vitamin_b" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_b_is_guess"><input type="checkbox" name="vitamin_b_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Vitamin C (mg)</label><input type="number" name="vitamin_c" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_c_is_guess"><input type="checkbox" name="vitamin_c_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Vitamin D (mg)</label><input type="number" name="vitamin_d" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_d_is_guess"><input type="checkbox" name="vitamin_d_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Vitamin E (mg)</label><input type="number" name="vitamin_e" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_e_is_guess"><input type="checkbox" name="vitamin_e_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Vitamin K (mg)</label><input type="number" name="vitamin_k" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_k_is_guess"><input type="checkbox" name="vitamin_k_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
           </details>
 
-          <!-- MINERALS -->
           <details>
             <summary>Minerals</summary>
-            <div class="nutrient-grid">
-              <div class="nutrient"><label>Calcium (mg) <input type="number" name="calcium" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="calcium_is_guess">guess</label></div>
-              <div class="nutrient"><label>Iron (mg) <input type="number" name="iron" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="iron_is_guess">guess</label></div>
-              <div class="nutrient"><label>Potassium (mg) <input type="number" name="potassium" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="potassium_is_guess">guess</label></div>
-              <div class="nutrient"><label>Zinc (mg) <input type="number" name="zinc" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="zinc_is_guess">guess</label></div>
-              <div class="nutrient"><label>Magnesium (mg) <input type="number" name="magnesium" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="magnesium_is_guess">guess</label></div>
-              <div class="nutrient"><label>Iodine (mg) <input type="number" name="iodine" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="iodine_is_guess">guess</label></div>
-              <div class="nutrient"><label>Phosphorus (mg) <input type="number" name="phosphorus" min="0" step="any" value="0"></label><label class="guess"><input type="checkbox" name="phosphorus_is_guess">guess</label></div>
-            </div>
+            <div class="field-row"><label class="field-label">Calcium (mg)</label><input type="number" name="calcium" min="0" step="any" value="0"><div class="guess-toggle" data-target="calcium_is_guess"><input type="checkbox" name="calcium_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Iron (mg)</label><input type="number" name="iron" min="0" step="any" value="0"><div class="guess-toggle" data-target="iron_is_guess"><input type="checkbox" name="iron_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Potassium (mg)</label><input type="number" name="potassium" min="0" step="any" value="0"><div class="guess-toggle" data-target="potassium_is_guess"><input type="checkbox" name="potassium_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Zinc (mg)</label><input type="number" name="zinc" min="0" step="any" value="0"><div class="guess-toggle" data-target="zinc_is_guess"><input type="checkbox" name="zinc_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Magnesium (mg)</label><input type="number" name="magnesium" min="0" step="any" value="0"><div class="guess-toggle" data-target="magnesium_is_guess"><input type="checkbox" name="magnesium_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Iodine (mg)</label><input type="number" name="iodine" min="0" step="any" value="0"><div class="guess-toggle" data-target="iodine_is_guess"><input type="checkbox" name="iodine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
+            <div class="field-row"><label class="field-label">Phosphorus (mg)</label><input type="number" name="phosphorus" min="0" step="any" value="0"><div class="guess-toggle" data-target="phosphorus_is_guess"><input type="checkbox" name="phosphorus_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
           </details>
 
           <div class="button-row">
@@ -151,6 +271,20 @@
           <thead><tr><th>Date</th><th>Title</th><th>kcal</th><th>P</th><th>C</th><th>F</th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+
+      <div class="card secondary">
+        <details id="photo-shortcut">
+          <summary>
+            <h3>📷 Add from a photo (experimental)</h3>
+            <span class="hint">Upload a meal photo to auto-fill the form above with predicted nutrition values.</span>
+          </summary>
+          <div class="photo-body">
+            <input type="file" id="meal-photo" accept="image/*" />
+            <button id="analyze-btn">Recognise &amp; fill form</button>
+            <pre id="analyze-output"></pre>
+          </div>
+        </details>
       </div>
     </section>
   </main>

@@ -209,3 +209,139 @@ details[open] > summary {
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
 }
+
+/* Secondary/de-emphasized card (photo shortcut at bottom) */
+.card.secondary {
+  background: #f6f8fa;
+  border-color: #e1e4e8;
+}
+.card.secondary > details > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card.secondary > details > summary::-webkit-details-marker {
+  display: none;
+}
+.card.secondary > details > summary h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--fg);
+  font-weight: 600;
+}
+.card.secondary > details[open] > summary h3 {
+  color: var(--accent);
+}
+.card.secondary .hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.card.secondary .photo-body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.card.secondary .photo-body pre {
+  max-height: 240px;
+  overflow: auto;
+}
+
+/* === Full-width field rows === */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.field-row .field-label {
+  flex: 0 0 180px;
+  font-size: 0.9rem;
+  color: var(--fg);
+  margin: 0;
+  padding: 0;
+}
+.field-row .field-label.parent {
+  font-weight: 600;
+}
+.field-row input[type="number"] {
+  flex: 1;
+  min-width: 0;
+}
+.field-row.child {
+  padding-left: 20px;
+}
+.field-row.child .field-label {
+  flex: 0 0 160px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.field-group {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+  margin: 12px 0;
+}
+.field-group .field-row:first-child .field-label {
+  color: var(--fg);
+}
+
+/* Guess / accurate toggle */
+.guess-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  flex: 0 0 auto;
+}
+.guess-toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.guess-toggle .guess-track {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+.guess-toggle .guess-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.15s ease;
+}
+.guess-toggle:not(.is-guess) .guess-track {
+  background: #b1bac4;
+}
+.guess-toggle:not(.is-guess) .guess-thumb {
+  transform: translateX(16px);
+}
+.guess-toggle .guess-state {
+  font-size: 0.75rem;
+  color: var(--muted);
+  width: 56px;
+  text-align: left;
+}
+@media (max-width: 520px) {
+  .field-row { flex-wrap: wrap; }
+  .field-row .field-label,
+  .field-row.child .field-label {
+    flex: 1 1 100%;
+    margin-bottom: 2px;
+  }
+}

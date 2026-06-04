@@ -112,6 +112,14 @@ document.getElementById("analyze-btn").onclick = async () => {
   const result = await r.json();
   lastAnalysis = result;
   out.textContent = JSON.stringify(result, null, 2);
+
+  // Auto-fill the Add a meal form with the predicted nutrition.
+  const fillBtn = document.getElementById("fill-from-analysis");
+  if (fillBtn) fillBtn.click();
+
+  // Scroll back up to the form so the user can review/edit before saving.
+  const form = document.getElementById("add-meal-form");
+  if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
 // ---- Meals list ----
@@ -202,7 +210,7 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
       const v = Number(el.value);
       if (!Number.isNaN(v) && v !== 0) payload[el.name] = v;
     } else if (el.type === "checkbox" && el.name.endsWith("_is_guess")) {
-      if (el.checked) payload[el.name] = true;
+      payload[el.name] = el.checked;
     }
   }
 
@@ -277,6 +285,42 @@ function showAddMealError(msg) {
   el.textContent = msg;
   el.hidden = false;
   document.getElementById("add-meal-success").hidden = true;
+}
+
+
+// ---- Guess/accurate toggle wiring ----
+function initGuessToggles() {
+  for (const t of document.querySelectorAll(".guess-toggle")) {
+    const cb = t.querySelector('input[type="checkbox"]');
+    const state = t.querySelector(".guess-state");
+    if (!cb || !state) continue;
+    const update = () => {
+      t.classList.toggle("is-guess", cb.checked);
+      state.textContent = cb.checked ? "guess" : "accurate";
+    };
+    update();
+    t.addEventListener("click", (e) => {
+      if (e.target !== cb) cb.checked = !cb.checked;
+      update();
+    });
+  }
+}
+initGuessToggles();
+
+// When the user types a non-zero number, auto-flip toggle off "guess".
+for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]')) {
+  inp.addEventListener("input", () => {
+    const guessName = inp.name + "_is_guess";
+    const cb = document.querySelector(`#add-meal-form input[name="${guessName}"]`);
+    if (cb && cb.checked && Number(inp.value) !== 0) {
+      cb.checked = false;
+      const toggle = cb.closest(".guess-toggle");
+      if (toggle) {
+        toggle.classList.remove("is-guess");
+        toggle.querySelector(".guess-state").textContent = "accurate";
+      }
+    }
+  });
 }
 
 render();

@@ -61,6 +61,7 @@ function render() {
     bar.innerHTML = `<button id="logout-btn" class="ghost">Sign out</button>`;
     document.getElementById("logout-btn").onclick = () => { tokens.clear(); render(); };
     refreshMeals();
+    setDefaultMealDate();
   }
 }
 
@@ -108,7 +109,9 @@ document.getElementById("analyze-btn").onclick = async () => {
     body: JSON.stringify({ image_base64: b64, locale: "en" }),
   });
   if (!r.ok) { out.textContent = await niceError(r); return; }
-  out.textContent = JSON.stringify(await r.json(), null, 2);
+  const result = await r.json();
+  lastAnalysis = result;
+  out.textContent = JSON.stringify(result, null, 2);
 };
 
 // ---- Meals list ----
@@ -152,6 +155,96 @@ async function niceError(r) {
 }
 function escape(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+
+// ---- Add meal form ----
+// Cache the most recent vision analysis so the user can pre-fill from it.
+let lastAnalysis = null;
+
+function setDefaultMealDate() {
+  // Default the date input to "now" in the user's local timezone.
+  const now = new Date();
+  const tz = now.getTimezoneOffset() * 60000;
+  const local = new Date(now - tz).toISOString().slice(0, 16);
+  const el = document.querySelector('#add-meal-form input[name="date"]');
+  if (el && !el.value) el.value = local;
+}
+
+document.getElementById("add-meal-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("add-meal-error");
+  const okEl = document.getElementById("add-meal-success");
+  errEl.hidden = true; okEl.hidden = true;
+
+  const fd = new FormData(e.target);
+  // datetime-local has no timezone — append :00 seconds and let backend parse as local-as-UTC.
+  // For a single-user web app this is fine; iOS app uses real timezone-aware dates.
+  const payload = {
+    title: fd.get("title"),
+    date: new Date(fd.get("date")).toISOString(),
+    calories: Number(fd.get("calories")) || 0,
+    protein: Number(fd.get("protein")) || 0,
+    carbohydrates: Number(fd.get("carbohydrates")) || 0,
+    fat: Number(fd.get("fat")) || 0,
+  };
+
+  const r = await api("/meals", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    errEl.textContent = await niceError(r);
+    errEl.hidden = false;
+    return;
+  }
+  okEl.textContent = "Meal saved.";
+  okEl.hidden = false;
+  e.target.reset();
+  setDefaultMealDate();
+  refreshMeals();
+};
+
+document.getElementById("fill-from-analysis").onclick = () => {
+  if (!lastAnalysis || !lastAnalysis.nutrition) {
+    showAddMealError("Run an analysis first, then click this to pre-fill.");
+    return;
+  }
+  // Sum per-100g nutrition * estimated_grams / 100 across each predicted food.
+  let cals = 0, prot = 0, carb = 0, fat = 0;
+  const nutByLabel = Object.fromEntries(
+    (lastAnalysis.nutrition.foods || []).map(f => [f.label, f.per_100g])
+  );
+  for (const pred of (lastAnalysis.predictions || [])) {
+    const n = nutByLabel[pred.label];
+    if (!n) continue;
+    const grams = pred.estimated_grams || 100;
+    cals += (n.calories || 0) * grams / 100;
+    prot += (n.protein || 0) * grams / 100;
+    carb += (n.carbohydrates || 0) * grams / 100;
+    fat  += (n.fat || 0) * grams / 100;
+  }
+  const form = document.getElementById("add-meal-form");
+  if (cals > 0 || prot > 0 || carb > 0 || fat > 0) {
+    form.elements.calories.value = cals.toFixed(0);
+    form.elements.protein.value = prot.toFixed(1);
+    form.elements.carbohydrates.value = carb.toFixed(1);
+    form.elements.fat.value = fat.toFixed(1);
+    const titleSuggestion = (lastAnalysis.predictions || [])
+      .map(p => p.label).slice(0, 3).join(", ");
+    if (!form.elements.title.value && titleSuggestion) {
+      form.elements.title.value = titleSuggestion;
+    }
+  } else {
+    showAddMealError("Last analysis had no matched nutrition data — try again or enter manually.");
+  }
+};
+
+function showAddMealError(msg) {
+  const el = document.getElementById("add-meal-error");
+  el.textContent = msg;
+  el.hidden = false;
+  document.getElementById("add-meal-success").hidden = true;
 }
 
 render();

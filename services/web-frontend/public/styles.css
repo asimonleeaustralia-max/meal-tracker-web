@@ -90,3 +90,19 @@ pre {
 table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
 th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
+
+/* Add-meal form layout */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.success {
+  color: #1a7f37;
+  font-size: 0.9rem;
+}

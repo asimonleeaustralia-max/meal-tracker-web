@@ -44,6 +44,28 @@
       </div>
 
       <div class="card">
+        <h2>Add a meal</h2>
+        <div id="add-meal-error" class="error" hidden></div>
+        <div id="add-meal-success" class="success" hidden></div>
+        <form id="add-meal-form">
+          <label>Title <input type="text" name="title" placeholder="e.g. Lunch — chicken salad" required></label>
+          <label>Date &amp; time <input type="datetime-local" name="date" required></label>
+          <div class="row">
+            <label>Calories <input type="number" name="calories" min="0" step="any" value="0" required></label>
+            <label>Protein (g) <input type="number" name="protein" min="0" step="any" value="0"></label>
+          </div>
+          <div class="row">
+            <label>Carbs (g) <input type="number" name="carbohydrates" min="0" step="any" value="0"></label>
+            <label>Fat (g) <input type="number" name="fat" min="0" step="any" value="0"></label>
+          </div>
+          <div class="button-row">
+            <button type="submit">Save meal</button>
+            <button type="button" id="fill-from-analysis" class="ghost">Use last analysis</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
         <h2>Your meals</h2>
         <button id="refresh-meals">Refresh</button>
         <table id="meals-table">

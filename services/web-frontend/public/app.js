@@ -62,6 +62,8 @@ function render() {
     document.getElementById("logout-btn").onclick = () => { tokens.clear(); render(); };
     refreshMeals();
     setDefaultMealDate();
+    if (typeof initNutrientValidation === "function") initNutrientValidation();
+    if (typeof initGuessToggles === "function") initGuessToggles();
   }
 }
 
@@ -318,6 +320,92 @@ for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]
       if (toggle) {
         toggle.classList.remove("is-guess");
         toggle.querySelector(".guess-state").textContent = "accurate";
+      }
+    }
+  });
+}
+
+
+// ---- Nutrient validation: visual flags only, never blocks save ----
+const NUTRIENT_LIMITS = {
+  // field: { warn, err, unit }
+  calories:            { warn: 5000,  err: 10000, unit: "kcal" },
+  protein:             { warn: 300,   err: 600,   unit: "g" },
+  carbohydrates:       { warn: 800,   err: 1500,  unit: "g" },
+  fat:                 { warn: 400,   err: 800,   unit: "g" },
+  sodium:              { warn: 5000,  err: 10000, unit: "mg" },
+  starch:              { warn: 600,   err: 1200,  unit: "g" },
+  sugars:              { warn: 300,   err: 600,   unit: "g" },
+  fibre:               { warn: 100,   err: 200,   unit: "g" },
+  monounsaturated_fat: { warn: 200,   err: 400,   unit: "g" },
+  polyunsaturated_fat: { warn: 200,   err: 400,   unit: "g" },
+  saturated_fat:       { warn: 100,   err: 200,   unit: "g" },
+  trans_fat:           { warn: 10,    err: 30,    unit: "g" },
+  omega3:              { warn: 10,    err: 30,    unit: "g" },
+  omega6:              { warn: 30,    err: 60,    unit: "g" },
+  animal_protein:      { warn: 300,   err: 600,   unit: "g" },
+  plant_protein:       { warn: 300,   err: 600,   unit: "g" },
+  protein_supplements: { warn: 100,   err: 300,   unit: "g" },
+  a2_beta_casein:      { warn: 50,    err: 150,   unit: "g" },
+  a1_beta_casein:      { warn: 50,    err: 150,   unit: "g" },
+  alcohol:             { warn: 80,    err: 200,   unit: "g" },
+  nicotine:            { warn: 20,    err: 50,    unit: "mg" },
+  theobromine:         { warn: 1000,  err: 2000,  unit: "mg" },
+  caffeine:            { warn: 600,   err: 1200,  unit: "mg" },
+  taurine:             { warn: 3000,  err: 6000,  unit: "mg" },
+  creatine:            { warn: 20,    err: 50,    unit: "g" },
+  vitamin_a:           { warn: 3,     err: 10,    unit: "mg" },
+  vitamin_b:           { warn: 100,   err: 500,   unit: "mg" },
+  vitamin_c:           { warn: 2000,  err: 10000, unit: "mg" },
+  vitamin_d:           { warn: 0.1,   err: 0.25,  unit: "mg" },
+  vitamin_e:           { warn: 1000,  err: 1500,  unit: "mg" },
+  vitamin_k:           { warn: 10,    err: 30,    unit: "mg" },
+  calcium:             { warn: 2500,  err: 5000,  unit: "mg" },
+  iron:                { warn: 45,    err: 100,   unit: "mg" },
+  potassium:           { warn: 5000,  err: 10000, unit: "mg" },
+  zinc:                { warn: 40,    err: 100,   unit: "mg" },
+  magnesium:           { warn: 700,   err: 1500,  unit: "mg" },
+  iodine:              { warn: 1.1,   err: 3,     unit: "mg" },
+  phosphorus:          { warn: 4000,  err: 8000,  unit: "mg" },
+};
+
+function checkNutrient(inp) {
+  const lim = NUTRIENT_LIMITS[inp.name];
+  if (!lim) return;
+  const v = Number(inp.value);
+  inp.classList.remove("warn", "err");
+  inp.removeAttribute("title");
+  if (Number.isNaN(v) || v <= 0) return;
+  if (v >= lim.err) {
+    inp.classList.add("err");
+    inp.title = `Implausibly high. Typical max is around ${lim.warn} ${lim.unit}.`;
+  } else if (v >= lim.warn) {
+    inp.classList.add("warn");
+    inp.title = `Unusually high — sanity-check this value (typical max ~${lim.warn} ${lim.unit}).`;
+  }
+}
+
+function initNutrientValidation() {
+  for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]')) {
+    inp.addEventListener("input", () => checkNutrient(inp));
+    checkNutrient(inp);  // run once on load in case the form is pre-filled
+  }
+}
+initNutrientValidation();
+
+
+// Prevent input/toggle clicks inside a macro <summary> from collapsing the details.
+for (const s of document.querySelectorAll("details.macro-group > summary")) {
+  s.addEventListener("click", (e) => {
+    // Only the chevron region toggles; any click on an input or toggle stays put.
+    if (e.target.tagName === "INPUT" ||
+        e.target.closest(".guess-toggle") ||
+        e.target.classList.contains("field-label")) {
+      e.preventDefault();
+      // But labels for the input WILL receive a click — focus the input instead.
+      if (e.target.classList.contains("field-label")) {
+        const inp = s.querySelector('input[type="number"]');
+        if (inp) inp.focus();
       }
     }
   });

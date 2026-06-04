@@ -345,3 +345,58 @@ details[open] > summary {
     margin-bottom: 2px;
   }
 }
+
+/* === Collapsible macro groups (Carbs/Fat/Protein) === */
+details.macro-group {
+  border-left: 3px solid var(--border);
+  padding: 0;
+  margin: 12px 0;
+  background: transparent;
+  border-radius: 0;
+}
+details.macro-group > summary {
+  cursor: pointer;
+  padding-left: 12px;
+  list-style: none;
+  position: relative;
+}
+details.macro-group > summary::-webkit-details-marker { display: none; }
+details.macro-group > summary::before {
+  content: "▸";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+details.macro-group[open] > summary::before {
+  transform: translateY(-50%) rotate(90deg);
+}
+details.macro-group[open] > summary {
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: 6px;
+}
+/* Children inside the open details */
+details.macro-group .field-row.child {
+  padding-left: 32px;
+}
+
+/* === Validation: warning + error visual flags === */
+input.warn,
+input.err {
+  border-width: 1.5px;
+}
+input.warn {
+  border-color: #d4a72c;
+  background: #fffbe6;
+}
+input.err {
+  border-color: #cf222e;
+  background: #ffe9ec;
+}
+/* Subtle hint icon spacing — placeholder for tooltip */
+.field-row input[title] {
+  /* native browser tooltip will appear on hover */
+}

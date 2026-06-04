@@ -123,15 +123,21 @@ async function refreshMeals() {
   tbody.innerHTML = "";
   for (const m of meals) {
     const tr = document.createElement("tr");
+    const num = (v, d=1) => (v == null ? "0" : Number(v).toFixed(d));
     tr.innerHTML = `
-      <td>${new Date(m.date).toLocaleString()}</td>
+      <td>${m.date ? new Date(m.date).toLocaleString() : ""}</td>
       <td>${escape(m.title)}</td>
-      <td>${m.calories.toFixed(0)}</td>
-      <td>${m.protein.toFixed(1)}</td>
-      <td>${m.carbohydrates.toFixed(1)}</td>
-      <td>${m.fat.toFixed(1)}</td>`;
+      <td>${num(m.calories, 0)}</td>
+      <td>${num(m.protein, 1)}</td>
+      <td>${num(m.carbohydrates, 1)}</td>
+      <td>${num(m.fat, 1)}</td>`;
     tbody.appendChild(tr);
   }
+  // Show a hint when the list is empty
+  if (meals.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px;">No meals saved yet.</td></tr>';
+  }
+  console.log(`refreshMeals: ${meals.length} meals returned`);
 }
 document.getElementById("refresh-meals").onclick = refreshMeals;
 

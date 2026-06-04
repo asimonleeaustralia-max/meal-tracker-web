@@ -106,3 +106,41 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
   color: #1a7f37;
   font-size: 0.9rem;
 }
+
+/* MacrosSimple wordmark */
+header h1.brand {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+}
+.brand-macros {
+  color: #d72638;          /* a strong, slightly warm red */
+}
+.brand-simple {
+  color: #fff;
+  /* thin black "outline" via four offset shadows — works in all browsers */
+  text-shadow:
+    -1px -1px 0 #111,
+     1px -1px 0 #111,
+    -1px  1px 0 #111,
+     1px  1px 0 #111;
+}
+/* Subtle accent dot after the wordmark */
+header h1.brand::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #d72638;
+  border-radius: 50%;
+  margin-left: 6px;
+  transform: translateY(-2px);
+}
+/* Give the header a touch more breathing room now that the title is taller */
+header {
+  padding: 16px 24px;
+}

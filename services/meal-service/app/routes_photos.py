@@ -118,7 +118,11 @@ async def list_photos_for_meal(
     if meal is None or meal.user_id != user_id:
         raise HTTPException(status_code=404, detail="Meal not found")
     rows = (
-        (await db.execute(select(MealPhoto).where(MealPhoto.meal_id == meal_id)))
+        (await db.execute(
+            select(MealPhoto)
+            .where(MealPhoto.meal_id == meal_id)
+            .order_by(MealPhoto.display_order, MealPhoto.created_at)
+        ))
         .scalars()
         .all()
     )
@@ -166,6 +170,11 @@ async def upload_inline_photo(
     )).scalar() or 0
     if existing >= 20:
         raise HTTPException(status_code=400, detail="Maximum 20 photos per meal")
+    # Assign next display_order
+    max_order_row = (await db.execute(
+        select(_sql_func.max(MealPhoto.display_order)).where(MealPhoto.meal_id == payload.meal_id)
+    )).scalar()
+    next_order = (max_order_row + 1) if max_order_row is not None else 0
     photo = MealPhoto(
         id=payload.id or uuid.uuid4(),
         meal_id=payload.meal_id,
@@ -181,11 +190,46 @@ async def upload_inline_photo(
         longitude=payload.longitude,
         image_data_b64=payload.image_data_b64,
         thumb_data_b64=payload.thumb_data_b64,
+        display_order=next_order,
     )
     db.add(photo)
     await db.flush()
     await db.refresh(photo)
     return MealPhotoSchema.model_validate(photo)
+
+
+class ReorderRequest(BaseModel):
+    photo_ids: list[uuid.UUID]
+
+
+@router.put("/by-meal/{meal_id}/order", response_model=list[MealPhotoSchema])
+async def reorder_photos(
+    meal_id: uuid.UUID,
+    payload: ReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> list[MealPhotoSchema]:
+    """Reassign display_order for every photo in this meal based on the order
+    of photo_ids in the request body. The list must contain exactly the photo
+    ids currently attached to this meal."""
+    meal = await db.get(Meal, meal_id)
+    if meal is None or meal.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Meal not found")
+    rows = (await db.execute(
+        select(MealPhoto).where(MealPhoto.meal_id == meal_id)
+    )).scalars().all()
+    by_id = {r.id: r for r in rows}
+    if set(payload.photo_ids) != set(by_id.keys()):
+        raise HTTPException(status_code=400, detail="photo_ids must match the meal's photos exactly")
+    for i, pid in enumerate(payload.photo_ids):
+        by_id[pid].display_order = i
+    await db.flush()
+    out = []
+    for pid in payload.photo_ids:
+        m = MealPhotoSchema.model_validate(by_id[pid])
+        m.image_data_b64 = None
+        out.append(m)
+    return out
 
 
 @router.delete("/{photo_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)

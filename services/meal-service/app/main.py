@@ -37,6 +37,10 @@ async def lifespan(app: FastAPI):
                 f'ALTER TABLE "{settings.db_schema}".meal_photos '
                 'ADD COLUMN IF NOT EXISTS thumb_data_b64 TEXT'
             )
+            await conn.exec_driver_sql(
+                f'ALTER TABLE "{settings.db_schema}".meal_photos '
+                'ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0'
+            )
 
     init_db(db)
     yield

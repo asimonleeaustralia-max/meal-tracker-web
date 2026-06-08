@@ -490,28 +490,160 @@ function toggleExpand(tr, meal) {
     return;
   }
   tr.classList.add("expanded");
-  const photos = _photosByMeal[meal.id] || [];
   const expandTr = document.createElement("tr");
   expandTr.className = "meal-expand-row";
+  expandTr.dataset.mealId = meal.id;
   const td = document.createElement("td");
   td.colSpan = 7;
+  expandTr.appendChild(td);
+  tr.parentNode.insertBefore(expandTr, tr.nextSibling);
+  renderExpandRow(meal);
+}
+
+function renderExpandRow(meal) {
+  const expandTr = document.querySelector(`tr.meal-expand-row[data-meal-id="${meal.id}"]`);
+  if (!expandTr) return;
+  const td = expandTr.querySelector("td");
+  const photos = _photosByMeal[meal.id] || [];
   td.innerHTML = `
     <div class="meal-expand">
       <div class="meal-expand-photos">
-        ${photos.length === 0
-          ? '<span class="muted">No photos for this meal.</span>'
-          : photos.map(p => `<div class="photo-thumb"><img src="data:image/jpeg;base64,${p.thumb_data_b64 || ''}" data-photo-id="${p.id}" alt=""></div>`).join("")}
+        ${photos.map((p, idx) => `
+          <div class="photo-thumb" data-photo-id="${p.id}">
+            <img src="data:image/jpeg;base64,${p.thumb_data_b64 || ''}" alt="">
+            <button type="button" class="photo-action photo-action-delete" data-action="delete" title="Delete">✕</button>
+            ${idx > 0 ? `<button type="button" class="photo-action photo-action-left" data-action="left" title="Move left">◀</button>` : ''}
+            ${idx < photos.length - 1 ? `<button type="button" class="photo-action photo-action-right" data-action="right" title="Move right">▶</button>` : ''}
+          </div>
+        `).join("")}
+        <button type="button" class="photo-add-btn" data-meal-id="${meal.id}">+ Add</button>
       </div>
     </div>
   `;
-  td.querySelectorAll(".photo-thumb img").forEach(img => {
-    img.addEventListener("click", (e) => {
+
+  // Wire up clicks
+  td.querySelectorAll(".photo-thumb").forEach(div => {
+    const pid = div.dataset.photoId;
+    div.querySelector("img").addEventListener("click", (e) => {
       e.stopPropagation();
-      openPhotoModal(img.dataset.photoId);
+      openPhotoModal(pid);
+    });
+    const deleteBtn = div.querySelector('[data-action="delete"]');
+    if (deleteBtn) deleteBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Delete this photo?")) return;
+      await deletePhoto(pid, meal);
+    });
+    const leftBtn = div.querySelector('[data-action="left"]');
+    if (leftBtn) leftBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await movePhoto(pid, meal, -1);
+    });
+    const rightBtn = div.querySelector('[data-action="right"]');
+    if (rightBtn) rightBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await movePhoto(pid, meal, 1);
     });
   });
-  expandTr.appendChild(td);
-  tr.parentNode.insertBefore(expandTr, tr.nextSibling);
+  const addBtn = td.querySelector(".photo-add-btn");
+  if (addBtn) addBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    addPhotosToMeal(meal);
+  });
+}
+
+async function deletePhoto(photoId, meal) {
+  const r = await api(`/photos/${photoId}`, { method: "DELETE" });
+  if (!r.ok) {
+    alert("Failed to delete photo.");
+    return;
+  }
+  _photosByMeal[meal.id] = (_photosByMeal[meal.id] || []).filter(p => p.id !== photoId);
+  renderExpandRow(meal);
+  // Update the photo-count cell on the parent row
+  const tr = document.querySelector(`tr[data-meal-id="${meal.id}"]`);
+  if (tr) {
+    const cell = tr.querySelector(".photos-cell");
+    const n = _photosByMeal[meal.id].length;
+    if (cell) cell.innerHTML = n === 0 ? '<span class="muted">—</span>' : `📷 ${n}`;
+  }
+}
+
+async function movePhoto(photoId, meal, delta) {
+  const photos = _photosByMeal[meal.id] || [];
+  const idx = photos.findIndex(p => p.id === photoId);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= photos.length) return;
+  // Swap locally
+  const reordered = [...photos];
+  [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+  // Send to backend
+  const r = await api(`/photos/by-meal/${meal.id}/order`, {
+    method: "PUT",
+    body: JSON.stringify({ photo_ids: reordered.map(p => p.id) }),
+  });
+  if (!r.ok) {
+    alert("Failed to reorder.");
+    return;
+  }
+  _photosByMeal[meal.id] = reordered;
+  renderExpandRow(meal);
+}
+
+async function addPhotosToMeal(meal) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.multiple = true;
+  input.addEventListener("change", async () => {
+    const existing = (_photosByMeal[meal.id] || []).length;
+    const remaining = MAX_PHOTOS - existing;
+    if (remaining <= 0) {
+      alert(`This meal already has ${MAX_PHOTOS} photos (the maximum).`);
+      return;
+    }
+    const files = Array.from(input.files).slice(0, remaining);
+    if (input.files.length > remaining) {
+      alert(`Only added ${remaining} photo(s) — limit is ${MAX_PHOTOS} per meal.`);
+    }
+    for (const file of files) {
+      try {
+        const resized = await resizePhotoToBase64(file);
+        const r = await api("/photos/inline", {
+          method: "POST",
+          body: JSON.stringify({
+            meal_id: meal.id,
+            image_data_b64: resized.data_b64,
+            thumb_data_b64: resized.thumb_b64,
+            width: resized.width,
+            height: resized.height,
+            file_name_original: file.name,
+            byte_size_original: resized.byte_size,
+          }),
+        });
+        if (!r.ok) {
+          alert(`Failed to upload ${file.name}`);
+          continue;
+        }
+        const newPhoto = await r.json();
+        // The list endpoint normally strips image_data_b64, but inline returns it. Strip to match.
+        newPhoto.image_data_b64 = null;
+        _photosByMeal[meal.id] = [...(_photosByMeal[meal.id] || []), newPhoto];
+      } catch (e) {
+        console.error("Photo upload failed", e);
+      }
+    }
+    renderExpandRow(meal);
+    // Update photo-count cell on the parent row
+    const tr = document.querySelector(`tr[data-meal-id="${meal.id}"]`);
+    if (tr) {
+      const cell = tr.querySelector(".photos-cell");
+      const n = (_photosByMeal[meal.id] || []).length;
+      if (cell) cell.innerHTML = n === 0 ? '<span class="muted">—</span>' : `📷 ${n}`;
+    }
+  });
+  input.click();
 }
 
 async function openPhotoModal(photoId) {

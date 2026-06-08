@@ -213,6 +213,8 @@ class MealPhotoBase(BaseModel):
     image_data_b64: str | None = None
     # Small (~200px) thumbnail for listings; cheap to ship in bulk
     thumb_data_b64: str | None = None
+    # Display order within a meal (lower = first)
+    display_order: int = 0
 
 
 class MealPhotoCreate(MealPhotoBase):

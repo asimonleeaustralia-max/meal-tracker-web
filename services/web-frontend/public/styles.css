@@ -582,3 +582,51 @@ input.err {
 /* === Card-level polish === */
 .card { box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .success { color: #1a7f37; font-size: 0.9rem; }
+
+/* === Edit controls on history expanded thumbnails === */
+.meal-expand-photos .photo-thumb {
+  position: relative;
+}
+.photo-action {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 22px;
+  padding: 0;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  opacity: 0.85;
+  transition: opacity 0.1s, background 0.1s;
+}
+.photo-action:hover { opacity: 1; background: rgba(0,0,0,0.85); }
+.photo-action-delete { top: 4px; right: 4px; }
+.photo-action-left   { bottom: 4px; left: 4px; }
+.photo-action-right  { bottom: 4px; right: 4px; }
+
+.photo-add-btn {
+  width: 100px;
+  height: 100px;
+  border: 2px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.photo-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #f5faff;
+}

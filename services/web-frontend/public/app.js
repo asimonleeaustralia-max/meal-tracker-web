@@ -1,5 +1,4 @@
-// Minimal vanilla-JS frontend. All API calls go through the gateway at /api/*.
-// Tokens live in sessionStorage so they survive a reload but not a tab close.
+// MacrosSimple web frontend. All API calls go through the gateway.
 
 const API = "https://mealtracker476a-gateway.kindgrass-8e900679.australiaeast.azurecontainerapps.io/api";
 
@@ -11,7 +10,6 @@ const tokens = {
 };
 
 // ---- OAuth fragment handling ----
-// On successful OAuth the callback redirects to /auth/success#access_token=...&refresh_token=...
 (function handleOAuthFragment() {
   if (!location.hash) return;
   const frag = new URLSearchParams(location.hash.slice(1));
@@ -62,8 +60,8 @@ function render() {
     document.getElementById("logout-btn").onclick = () => { tokens.clear(); render(); };
     refreshMeals();
     setDefaultMealDate();
-    if (typeof initNutrientValidation === "function") initNutrientValidation();
-    if (typeof initGuessToggles === "function") initGuessToggles();
+    initGuessToggles();
+    initNutrientValidation();
   }
 }
 
@@ -98,68 +96,7 @@ document.getElementById("signup-btn").onclick = async () => {
   render();
 };
 
-// ---- Vision: pick a photo, analyse, render predictions + nutrition ----
-document.getElementById("analyze-btn").onclick = async () => {
-  const fileEl = document.getElementById("meal-photo");
-  const out = document.getElementById("analyze-output");
-  if (!fileEl.files.length) { out.textContent = "Pick a photo first."; return; }
-  out.textContent = "Analysing…";
-
-  const b64 = await fileToBase64(fileEl.files[0]);
-  const r = await api("/vision/analyze-meal", {
-    method: "POST",
-    body: JSON.stringify({ image_base64: b64, locale: "en" }),
-  });
-  if (!r.ok) { out.textContent = await niceError(r); return; }
-  const result = await r.json();
-  lastAnalysis = result;
-  out.textContent = JSON.stringify(result, null, 2);
-
-  // Auto-fill the Add a meal form with the predicted nutrition.
-  const fillBtn = document.getElementById("fill-from-analysis");
-  if (fillBtn) fillBtn.click();
-
-  // Scroll back up to the form so the user can review/edit before saving.
-  const form = document.getElementById("add-meal-form");
-  if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
-};
-
-// ---- Meals list ----
-async function refreshMeals() {
-  const r = await api("/meals?limit=20");
-  if (!r.ok) return;
-  const meals = await r.json();
-  const tbody = document.querySelector("#meals-table tbody");
-  tbody.innerHTML = "";
-  for (const m of meals) {
-    const tr = document.createElement("tr");
-    const num = (v, d=1) => (v == null ? "0" : Number(v).toFixed(d));
-    tr.innerHTML = `
-      <td>${m.date ? new Date(m.date).toLocaleString() : ""}</td>
-      <td>${escape(m.title)}</td>
-      <td>${num(m.calories, 0)}</td>
-      <td>${num(m.protein, 1)}</td>
-      <td>${num(m.carbohydrates, 1)}</td>
-      <td>${num(m.fat, 1)}</td>`;
-    tbody.appendChild(tr);
-  }
-  // Show a hint when the list is empty
-  if (meals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px;">No meals saved yet.</td></tr>';
-  }
-  console.log(`refreshMeals: ${meals.length} meals returned`);
-}
-document.getElementById("refresh-meals").onclick = refreshMeals;
-
-// ---- helpers ----
-function fileToBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(String(r.result).split(",")[1]);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
+// ---- Helpers ----
 function showError(msg) {
   const el = document.getElementById("login-error");
   el.textContent = msg;
@@ -172,14 +109,103 @@ async function niceError(r) {
 function escape(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 }
+function num(v, d = 1) { return v == null ? "0" : Number(v).toFixed(d); }
 
+// ---- Multi-photo upload UI ----
+let pendingPhotos = [];  // [{ data_b64, thumb_b64, width, height, byte_size, name }]
+const MAX_PHOTOS = 20;
+
+async function resizePhotoToBase64(file, maxDim = 800, quality = 0.8) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+    function encode(maxD, q) {
+      const scale = Math.min(maxD / img.width, maxD / img.height, 1);
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL("image/jpeg", q);
+      return { data_b64: dataUrl.split(",")[1], width: w, height: h, size: dataUrl.length };
+    }
+    let main = encode(maxDim, quality);
+    if (main.size > 600 * 1024) main = encode(640, 0.7);
+    const thumb = encode(200, 0.7);
+    return {
+      data_b64: main.data_b64,
+      thumb_b64: thumb.data_b64,
+      width: main.width,
+      height: main.height,
+      byte_size: Math.round(main.size * 0.75),
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function renderPhotoStrip() {
+  const strip = document.getElementById("photo-strip");
+  if (!strip) return;
+  strip.innerHTML = "";
+  if (pendingPhotos.length === 0) {
+    strip.hidden = true;
+    return;
+  }
+  strip.hidden = false;
+  pendingPhotos.forEach((p, i) => {
+    const div = document.createElement("div");
+    div.className = "photo-thumb";
+    div.innerHTML = `
+      <img src="data:image/jpeg;base64,${p.thumb_b64 || p.data_b64}" alt="">
+      <button type="button" class="photo-thumb-remove" aria-label="Remove">×</button>
+    `;
+    div.querySelector(".photo-thumb-remove").addEventListener("click", () => {
+      pendingPhotos.splice(i, 1);
+      renderPhotoStrip();
+    });
+    strip.appendChild(div);
+  });
+}
+
+function initPhotoFlow() {
+  const fileInput = document.getElementById("meal-photo");
+  const addBtn = document.getElementById("photo-btn");
+  if (!fileInput || !addBtn) return;
+  addBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    const remaining = MAX_PHOTOS - pendingPhotos.length;
+    if (remaining <= 0) {
+      alert(`Maximum ${MAX_PHOTOS} photos per meal.`);
+      fileInput.value = "";
+      return;
+    }
+    const all = Array.from(fileInput.files);
+    const files = all.slice(0, remaining);
+    if (all.length > remaining) {
+      alert(`Only added ${remaining} photo(s) — limit is ${MAX_PHOTOS} per meal.`);
+    }
+    for (const file of files) {
+      try {
+        const resized = await resizePhotoToBase64(file);
+        pendingPhotos.push({ ...resized, name: file.name });
+      } catch (e) {
+        console.error("Failed to process photo", file.name, e);
+      }
+    }
+    fileInput.value = "";
+    renderPhotoStrip();
+  });
+}
+initPhotoFlow();
 
 // ---- Add meal form ----
-// Cache the most recent vision analysis so the user can pre-fill from it.
-let lastAnalysis = null;
-
 function setDefaultMealDate() {
-  // Default the date input to "now" in the user's local timezone.
   const now = new Date();
   const tz = now.getTimezoneOffset() * 60000;
   const local = new Date(now - tz).toISOString().slice(0, 16);
@@ -195,17 +221,10 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
 
   const form = e.target;
   const fd = new FormData(form);
-
-  // Build payload from every form field. Numeric fields go in only if non-zero;
-  // is_guess flags only if the field is present (form has checkboxes for them).
   const payload = {
     title: fd.get("title"),
     date: new Date(fd.get("date")).toISOString(),
   };
-  const productName = fd.get("product_name");
-  if (productName) payload.product_name = productName;
-
-  // Walk every number/checkbox input on the form and include non-default values.
   for (const el of form.elements) {
     if (!el.name) continue;
     if (el.type === "number") {
@@ -216,79 +235,43 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
     }
   }
 
-  const r = await api("/meals", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const r = await api("/meals", { method: "POST", body: JSON.stringify(payload) });
   if (!r.ok) {
     errEl.textContent = await niceError(r);
     errEl.hidden = false;
     return;
   }
-  okEl.textContent = "Meal saved.";
+  const savedMeal = await r.json();
+
+  // Upload pending photos
+  let photoErrors = 0;
+  for (const ph of pendingPhotos) {
+    const pr = await api("/photos/inline", {
+      method: "POST",
+      body: JSON.stringify({
+        meal_id: savedMeal.id,
+        image_data_b64: ph.data_b64,
+        thumb_data_b64: ph.thumb_b64,
+        width: ph.width,
+        height: ph.height,
+        file_name_original: ph.name,
+        byte_size_original: ph.byte_size,
+      }),
+    });
+    if (!pr.ok) photoErrors++;
+  }
+  pendingPhotos = [];
+  renderPhotoStrip();
+
+  okEl.textContent = photoErrors > 0
+    ? `Meal saved (${photoErrors} photo(s) failed).`
+    : "Meal saved.";
   okEl.hidden = false;
   form.reset();
-  // Re-collapse all detail panels after a save
   for (const d of form.querySelectorAll("details")) d.removeAttribute("open");
   setDefaultMealDate();
   refreshMeals();
 };
-
-// Reset button — also collapses detail panels
-const resetBtn = document.getElementById("reset-meal-form");
-if (resetBtn) {
-  resetBtn.onclick = () => {
-    const form = document.getElementById("add-meal-form");
-    form.reset();
-    for (const d of form.querySelectorAll("details")) d.removeAttribute("open");
-    setDefaultMealDate();
-    document.getElementById("add-meal-error").hidden = true;
-    document.getElementById("add-meal-success").hidden = true;
-  };
-}
-
-document.getElementById("fill-from-analysis").onclick = () => {
-  if (!lastAnalysis || !lastAnalysis.nutrition) {
-    showAddMealError("Run an analysis first, then click this to pre-fill.");
-    return;
-  }
-  // Sum per-100g nutrition * estimated_grams / 100 across each predicted food.
-  let cals = 0, prot = 0, carb = 0, fat = 0;
-  const nutByLabel = Object.fromEntries(
-    (lastAnalysis.nutrition.foods || []).map(f => [f.label, f.per_100g])
-  );
-  for (const pred of (lastAnalysis.predictions || [])) {
-    const n = nutByLabel[pred.label];
-    if (!n) continue;
-    const grams = pred.estimated_grams || 100;
-    cals += (n.calories || 0) * grams / 100;
-    prot += (n.protein || 0) * grams / 100;
-    carb += (n.carbohydrates || 0) * grams / 100;
-    fat  += (n.fat || 0) * grams / 100;
-  }
-  const form = document.getElementById("add-meal-form");
-  if (cals > 0 || prot > 0 || carb > 0 || fat > 0) {
-    form.elements.calories.value = cals.toFixed(0);
-    form.elements.protein.value = prot.toFixed(1);
-    form.elements.carbohydrates.value = carb.toFixed(1);
-    form.elements.fat.value = fat.toFixed(1);
-    const titleSuggestion = (lastAnalysis.predictions || [])
-      .map(p => p.label).slice(0, 3).join(", ");
-    if (!form.elements.title.value && titleSuggestion) {
-      form.elements.title.value = titleSuggestion;
-    }
-  } else {
-    showAddMealError("Last analysis had no matched nutrition data — try again or enter manually.");
-  }
-};
-
-function showAddMealError(msg) {
-  const el = document.getElementById("add-meal-error");
-  el.textContent = msg;
-  el.hidden = false;
-  document.getElementById("add-meal-success").hidden = true;
-}
-
 
 // ---- Guess/accurate toggle wiring ----
 function initGuessToggles() {
@@ -301,34 +284,34 @@ function initGuessToggles() {
       state.textContent = cb.checked ? "guess" : "accurate";
     };
     update();
-    t.addEventListener("click", (e) => {
-      if (e.target !== cb) cb.checked = !cb.checked;
-      update();
+    if (!t.dataset.wired) {
+      t.dataset.wired = "1";
+      t.addEventListener("click", (e) => {
+        if (e.target !== cb) cb.checked = !cb.checked;
+        update();
+      });
+    }
+  }
+  // Auto-flip to "accurate" when user types a non-zero value
+  for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]')) {
+    if (inp.dataset.autoFlip) continue;
+    inp.dataset.autoFlip = "1";
+    inp.addEventListener("input", () => {
+      const cb = document.querySelector(`#add-meal-form input[name="${inp.name}_is_guess"]`);
+      if (cb && cb.checked && Number(inp.value) !== 0) {
+        cb.checked = false;
+        const toggle = cb.closest(".guess-toggle");
+        if (toggle) {
+          toggle.classList.remove("is-guess");
+          toggle.querySelector(".guess-state").textContent = "accurate";
+        }
+      }
     });
   }
 }
-initGuessToggles();
 
-// When the user types a non-zero number, auto-flip toggle off "guess".
-for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]')) {
-  inp.addEventListener("input", () => {
-    const guessName = inp.name + "_is_guess";
-    const cb = document.querySelector(`#add-meal-form input[name="${guessName}"]`);
-    if (cb && cb.checked && Number(inp.value) !== 0) {
-      cb.checked = false;
-      const toggle = cb.closest(".guess-toggle");
-      if (toggle) {
-        toggle.classList.remove("is-guess");
-        toggle.querySelector(".guess-state").textContent = "accurate";
-      }
-    }
-  });
-}
-
-
-// ---- Nutrient validation: visual flags only, never blocks save ----
+// ---- Nutrient validation ----
 const NUTRIENT_LIMITS = {
-  // field: { warn, err, unit }
   calories:            { warn: 5000,  err: 10000, unit: "kcal" },
   protein:             { warn: 300,   err: 600,   unit: "g" },
   carbohydrates:       { warn: 800,   err: 1500,  unit: "g" },
@@ -368,7 +351,6 @@ const NUTRIENT_LIMITS = {
   iodine:              { warn: 1.1,   err: 3,     unit: "mg" },
   phosphorus:          { warn: 4000,  err: 8000,  unit: "mg" },
 };
-
 function checkNutrient(inp) {
   const lim = NUTRIENT_LIMITS[inp.name];
   if (!lim) return;
@@ -378,37 +360,247 @@ function checkNutrient(inp) {
   if (Number.isNaN(v) || v <= 0) return;
   if (v >= lim.err) {
     inp.classList.add("err");
-    inp.title = `Implausibly high. Typical max is around ${lim.warn} ${lim.unit}.`;
+    inp.title = `Implausibly high. Typical max ~${lim.warn} ${lim.unit}.`;
   } else if (v >= lim.warn) {
     inp.classList.add("warn");
-    inp.title = `Unusually high — sanity-check this value (typical max ~${lim.warn} ${lim.unit}).`;
+    inp.title = `Unusually high — sanity-check (typical max ~${lim.warn} ${lim.unit}).`;
   }
 }
-
 function initNutrientValidation() {
   for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]')) {
+    if (inp.dataset.validated) continue;
+    inp.dataset.validated = "1";
     inp.addEventListener("input", () => checkNutrient(inp));
-    checkNutrient(inp);  // run once on load in case the form is pre-filled
+    checkNutrient(inp);
   }
 }
-initNutrientValidation();
 
-
-// Prevent input/toggle clicks inside a macro <summary> from collapsing the details.
+// Prevent input clicks inside macro <summary> from collapsing the details
 for (const s of document.querySelectorAll("details.macro-group > summary")) {
   s.addEventListener("click", (e) => {
-    // Only the chevron region toggles; any click on an input or toggle stays put.
-    if (e.target.tagName === "INPUT" ||
-        e.target.closest(".guess-toggle") ||
-        e.target.classList.contains("field-label")) {
+    if (e.target.tagName === "INPUT" || e.target.closest(".guess-toggle") || e.target.classList.contains("field-label")) {
       e.preventDefault();
-      // But labels for the input WILL receive a click — focus the input instead.
       if (e.target.classList.contains("field-label")) {
         const inp = s.querySelector('input[type="number"]');
         if (inp) inp.focus();
       }
     }
   });
+}
+
+// ---- Tabs ----
+function initTabs() {
+  const tabs = document.querySelectorAll(".tabs .tab");
+  const panes = document.querySelectorAll(".tab-pane");
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => {
+      const name = tab.dataset.tab;
+      for (const t of tabs) t.classList.toggle("active", t === tab);
+      for (const p of panes) {
+        const isThis = p.id === "tab-" + name;
+        p.classList.toggle("active", isThis);
+        p.hidden = !isThis;
+      }
+      if (name === "history") refreshMeals();
+      if (name === "reports") renderReports();
+    });
+  }
+}
+initTabs();
+
+// ---- Meals list ----
+let _mealsCache = [];
+let _photosByMeal = {};
+
+function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+
+function renderDailyTotals(meals) {
+  const today = startOfDay(new Date()).getTime();
+  const todays = meals.filter(m => startOfDay(m.date).getTime() === today);
+  const sum = (key) => todays.reduce((a, m) => a + (Number(m[key]) || 0), 0);
+  const el = document.getElementById("daily-totals");
+  if (!el) return;
+  el.innerHTML = `
+    <div class="totals-row">
+      <span class="totals-label">Today</span>
+      <span class="totals-num"><strong>${sum("calories").toFixed(0)}</strong> kcal</span>
+      <span class="totals-num">P <strong>${sum("protein").toFixed(0)}g</strong></span>
+      <span class="totals-num">C <strong>${sum("carbohydrates").toFixed(0)}g</strong></span>
+      <span class="totals-num">F <strong>${sum("fat").toFixed(0)}g</strong></span>
+      <span class="totals-meta">${todays.length} meal${todays.length === 1 ? "" : "s"}</span>
+    </div>
+  `;
+}
+
+async function fetchPhotosForMeal(mealId) {
+  try {
+    const r = await api(`/photos/by-meal/${mealId}`);
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
+}
+
+async function refreshMeals() {
+  const r = await api("/meals?limit=200");
+  if (!r.ok) return;
+  const meals = await r.json();
+  _mealsCache = meals;
+  const tbody = document.querySelector("#meals-table tbody");
+  tbody.innerHTML = "";
+  renderDailyTotals(meals);
+
+  if (meals.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center;padding:16px;">No meals saved yet.</td></tr>';
+    return;
+  }
+  for (const m of meals) {
+    const tr = document.createElement("tr");
+    tr.dataset.mealId = m.id;
+    tr.className = "meal-row";
+    tr.innerHTML = `
+      <td>${m.date ? new Date(m.date).toLocaleString() : ""}</td>
+      <td>${escape(m.title)}</td>
+      <td>${num(m.calories, 0)}</td>
+      <td>${num(m.protein, 1)}</td>
+      <td>${num(m.carbohydrates, 1)}</td>
+      <td>${num(m.fat, 1)}</td>
+      <td class="photos-cell"><span class="muted">…</span></td>`;
+    tr.addEventListener("click", () => toggleExpand(tr, m));
+    tbody.appendChild(tr);
+  }
+  const results = await Promise.all(meals.map(m => fetchPhotosForMeal(m.id)));
+  for (let i = 0; i < meals.length; i++) {
+    const m = meals[i];
+    const photos = results[i] || [];
+    _photosByMeal[m.id] = photos;
+    const cell = tbody.querySelector(`tr[data-meal-id="${m.id}"] .photos-cell`);
+    if (cell) {
+      cell.innerHTML = photos.length === 0
+        ? '<span class="muted">—</span>'
+        : `📷 ${photos.length}`;
+    }
+  }
+}
+
+function toggleExpand(tr, meal) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("meal-expand-row")) {
+    next.remove();
+    tr.classList.remove("expanded");
+    return;
+  }
+  tr.classList.add("expanded");
+  const photos = _photosByMeal[meal.id] || [];
+  const expandTr = document.createElement("tr");
+  expandTr.className = "meal-expand-row";
+  const td = document.createElement("td");
+  td.colSpan = 7;
+  td.innerHTML = `
+    <div class="meal-expand">
+      <div class="meal-expand-photos">
+        ${photos.length === 0
+          ? '<span class="muted">No photos for this meal.</span>'
+          : photos.map(p => `<div class="photo-thumb"><img src="data:image/jpeg;base64,${p.thumb_data_b64 || ''}" data-photo-id="${p.id}" alt=""></div>`).join("")}
+      </div>
+    </div>
+  `;
+  td.querySelectorAll(".photo-thumb img").forEach(img => {
+    img.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openPhotoModal(img.dataset.photoId);
+    });
+  });
+  expandTr.appendChild(td);
+  tr.parentNode.insertBefore(expandTr, tr.nextSibling);
+}
+
+async function openPhotoModal(photoId) {
+  let modal = document.getElementById("photo-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "photo-modal";
+    modal.className = "photo-modal";
+    modal.innerHTML = `<div class="photo-modal-backdrop"></div><div class="photo-modal-content"><img alt=""></div>`;
+    modal.querySelector(".photo-modal-backdrop").addEventListener("click", () => modal.remove());
+    document.body.appendChild(modal);
+  }
+  const img = modal.querySelector("img");
+  img.src = "";
+  try {
+    const r = await api(`/photos/${photoId}`);
+    if (!r.ok) throw new Error("fetch failed");
+    const p = await r.json();
+    img.src = `data:image/jpeg;base64,${p.image_data_b64}`;
+  } catch (e) {
+    img.alt = "Failed to load image";
+  }
+}
+
+document.getElementById("refresh-meals").onclick = refreshMeals;
+
+// ---- Reports tab ----
+function isoWeekStart(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const day = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - day);
+  return x;
+}
+function fmtWeekLabel(d) {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+async function renderReports() {
+  const el = document.getElementById("reports-content");
+  if (!el) return;
+  el.innerHTML = "<p class=\"muted\">Loading…</p>";
+  let meals = _mealsCache;
+  if (!meals || meals.length === 0) {
+    const r = await api("/meals?limit=500");
+    if (r.ok) meals = await r.json();
+    else meals = [];
+  }
+  const thisWeek = isoWeekStart(new Date());
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const start = new Date(thisWeek);
+    start.setDate(start.getDate() - i * 7);
+    weeks.push({ start, calories: 0, protein: 0, carbohydrates: 0, fat: 0, count: 0 });
+  }
+  for (const m of meals) {
+    const ws = isoWeekStart(new Date(m.date));
+    const bucket = weeks.find(w => w.start.getTime() === ws.getTime());
+    if (!bucket) continue;
+    bucket.calories += Number(m.calories) || 0;
+    bucket.protein += Number(m.protein) || 0;
+    bucket.carbohydrates += Number(m.carbohydrates) || 0;
+    bucket.fat += Number(m.fat) || 0;
+    bucket.count += 1;
+  }
+  const maxCal = Math.max(1, ...weeks.map(w => w.calories));
+  el.innerHTML = `
+    <div class="reports-weeks">
+      ${weeks.map((w, i) => {
+        const label = (i === weeks.length - 1) ? "This week" : `Week of ${fmtWeekLabel(w.start)}`;
+        const pct = (w.calories / maxCal) * 100;
+        return `
+          <div class="report-week ${i === weeks.length - 1 ? "current" : ""}">
+            <div class="report-week-header">
+              <span class="report-week-label">${label}</span>
+              <span class="report-week-meta">${w.count} meal${w.count === 1 ? "" : "s"}</span>
+            </div>
+            <div class="report-bar"><div class="report-bar-fill" style="width:${pct}%"></div></div>
+            <div class="report-week-stats">
+              <span><strong>${w.calories.toFixed(0)}</strong> kcal</span>
+              <span>P <strong>${w.protein.toFixed(0)}g</strong></span>
+              <span>C <strong>${w.carbohydrates.toFixed(0)}g</strong></span>
+              <span>F <strong>${w.fat.toFixed(0)}g</strong></span>
+              <span class="muted">${(w.calories / 7).toFixed(0)}/day avg</span>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 render();

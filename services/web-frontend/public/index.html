@@ -32,15 +32,36 @@
           <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login">Continue with Facebook</a>
         </div>
       </div>
+      <div id="tab-reports" class="tab-pane" hidden>
+        <div class="card">
+          <h2>Weekly report</h2>
+          <p class="muted">Macros over the last 8 weeks.</p>
+          <div id="reports-content"></div>
+        </div>
+      </div>
     </section>
 
     <!-- AUTHENTICATED APP -->
     <section id="app-section" hidden>
-      <div class="card">
-        <h2>Add a meal</h2>
-        <div id="add-meal-error" class="error" hidden></div>
-        <div id="add-meal-success" class="success" hidden></div>
-        <form id="add-meal-form">
+      <nav class="tabs">
+        <button type="button" class="tab active" data-tab="log">Log meal</button>
+        <button type="button" class="tab" data-tab="history">History</button>
+        <button type="button" class="tab" data-tab="reports">Reports</button>
+      </nav>
+
+      <div id="tab-log" class="tab-pane active">
+        <div class="card">
+          <div class="card-header">
+            <h2>Add a meal</h2>
+            <div class="photo-inline">
+              <input type="file" id="meal-photo" accept="image/*" multiple hidden>
+              <button type="button" id="photo-btn" class="ghost photo-btn-add">📷 Add photo</button>
+            </div>
+          </div>
+          <div id="photo-strip" class="photo-strip" hidden></div>
+          <div id="add-meal-error" class="error" hidden></div>
+          <div id="add-meal-success" class="success" hidden></div>
+          <form id="add-meal-form">
           <label>Title <input type="text" name="title" placeholder="e.g. Lunch — chicken salad" required></label>
           <label>Date &amp; time <input type="datetime-local" name="date" required></label>
 
@@ -258,33 +279,21 @@
 
           <div class="button-row">
             <button type="submit">Save meal</button>
-            <button type="button" id="fill-from-analysis" class="ghost">Use last analysis</button>
-            <button type="button" id="reset-meal-form" class="ghost">Reset</button>
           </div>
         </form>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Your meals</h2>
+      <div id="tab-history" class="tab-pane" hidden>
+        <div class="card">
+          <h2>Your meals</h2>
+          <div id="daily-totals" class="daily-totals"></div>
         <button id="refresh-meals">Refresh</button>
         <table id="meals-table">
           <thead><tr><th>Date</th><th>Title</th><th>kcal</th><th>P</th><th>C</th><th>F</th></tr></thead>
           <tbody></tbody>
         </table>
-      </div>
-
-      <div class="card secondary">
-        <details id="photo-shortcut">
-          <summary>
-            <h3>📷 Add from a photo (experimental)</h3>
-            <span class="hint">Upload a meal photo to auto-fill the form above with predicted nutrition values.</span>
-          </summary>
-          <div class="photo-body">
-            <input type="file" id="meal-photo" accept="image/*" />
-            <button id="analyze-btn">Recognise &amp; fill form</button>
-            <pre id="analyze-output"></pre>
-          </div>
-        </details>
+        </div>
       </div>
     </section>
   </main>

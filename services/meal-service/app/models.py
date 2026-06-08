@@ -20,6 +20,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -214,6 +215,11 @@ class MealPhoto(Base):
 
     # Where the photo bytes live (Azure Blob name / path)
     blob_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Inline base64 storage (used by the web frontend's inline upload path).
+    # iOS continues to use blob_name + Azure Blob Storage.
+    image_data_b64: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Small (~200px) thumbnail used in listings
+    thumb_data_b64: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

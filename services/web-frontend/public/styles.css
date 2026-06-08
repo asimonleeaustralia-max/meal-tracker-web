@@ -400,3 +400,185 @@ input.err {
 .field-row input[title] {
   /* native browser tooltip will appear on hover */
 }
+
+/* === Tabs === */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.tabs .tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: -1px;  /* sit on top of the section border */
+}
+.tabs .tab:hover {
+  color: var(--fg);
+}
+.tabs .tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-pane {
+  display: block;
+}
+.tab-pane[hidden] {
+  display: none;
+}
+
+/* === Inline photo UI in card header === */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.card-header h2 {
+  margin: 0;
+}
+.photo-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.photo-inline button {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+.photo-btn-add {
+  border-color: var(--border);
+}
+.photo-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.photo-clear {
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px 9px;
+  color: var(--muted);
+}
+
+/* Analyse output stays hidden by default; only revealed when content set */
+#analyze-output {
+  max-height: 200px;
+  overflow: auto;
+  margin-bottom: 12px;
+}
+
+/* === Photo strip + thumbnails === */
+.photo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 16px;
+  padding: 8px;
+  background: #f6f8fa;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.photo-thumb {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--card);
+  flex: 0 0 auto;
+}
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb-remove {
+  position: absolute; top: 2px; right: 2px;
+  width: 20px; height: 20px;
+  background: rgba(0,0,0,0.7); color: white;
+  border: none; border-radius: 50%;
+  font-size: 14px; font-weight: bold;
+  padding: 0; line-height: 18px;
+  cursor: pointer; text-align: center;
+}
+.photo-thumb-remove:hover { background: rgba(0,0,0,0.9); }
+
+/* === Daily totals strip === */
+.daily-totals { margin-bottom: 12px; }
+.totals-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #eaf4ff 0%, #f5faff 100%);
+  border: 1px solid #c8e1ff;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.totals-label { font-weight: 700; font-size: 0.95rem; color: var(--accent); }
+.totals-num { font-size: 0.95rem; color: var(--fg); }
+.totals-num strong { font-size: 1.05rem; }
+.totals-meta { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+.muted { color: var(--muted); }
+
+/* === History table refinements === */
+#meals-table .meal-row { cursor: pointer; transition: background 0.1s; }
+#meals-table .meal-row:hover { background: #f6f8fa; }
+#meals-table .meal-row.expanded { background: #eaf4ff; }
+.photos-cell { font-size: 0.9rem; color: var(--muted); }
+.meal-expand-row td { background: #fafbfc; padding: 16px; }
+.meal-expand-photos { display: flex; flex-wrap: wrap; gap: 8px; }
+.meal-expand-photos .photo-thumb { width: 100px; height: 100px; cursor: pointer; }
+
+/* === Photo modal === */
+.photo-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.8); cursor: pointer;
+}
+.photo-modal-content { position: relative; max-width: 90vw; max-height: 90vh; z-index: 1; }
+.photo-modal-content img {
+  max-width: 90vw; max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  display: block;
+}
+
+/* === Reports tab === */
+.reports-weeks { display: flex; flex-direction: column; gap: 14px; }
+.report-week {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.report-week.current {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, #f5faff 0%, #ffffff 100%);
+}
+.report-week-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.report-week-label { font-weight: 600; color: var(--fg); }
+.report-week-meta { color: var(--muted); font-size: 0.85rem; }
+.report-bar { height: 8px; background: #eef1f4; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+.report-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+.report-week.current .report-bar-fill { background: linear-gradient(90deg, var(--accent), #6cb6ff); }
+.report-week-stats { display: flex; gap: 14px; font-size: 0.9rem; flex-wrap: wrap; }
+.report-week-stats strong { color: var(--fg); }
+.report-week-stats .muted { margin-left: auto; }
+
+/* === Card-level polish === */
+.card { box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.success { color: #1a7f37; font-size: 0.9rem; }

@@ -122,7 +122,70 @@ async def list_photos_for_meal(
         .scalars()
         .all()
     )
-    return [MealPhotoSchema.model_validate(r) for r in rows]
+    out = []
+    for r in rows:
+        m = MealPhotoSchema.model_validate(r)
+        # Strip the heavy full image; callers fetch it via GET /photos/{photo_id}
+        m.image_data_b64 = None
+        out.append(m)
+    return out
+
+
+@router.get("/{photo_id}", response_model=MealPhotoSchema)
+async def get_photo(
+    photo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> MealPhotoSchema:
+    """Return one photo including the full image_data_b64."""
+    photo = await db.get(MealPhoto, photo_id)
+    if photo is None or photo.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return MealPhotoSchema.model_validate(photo)
+
+
+@router.post("/inline", response_model=MealPhotoSchema, status_code=status.HTTP_201_CREATED)
+async def upload_inline_photo(
+    payload: MealPhotoCreate,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> MealPhotoSchema:
+    """Create a MealPhoto row with the image bytes stored inline as base64.
+
+    This bypasses the Azure Blob SAS dance and is used by the web frontend.
+    """
+    if not payload.image_data_b64:
+        raise HTTPException(status_code=400, detail="image_data_b64 is required")
+    meal = await db.get(Meal, payload.meal_id)
+    if meal is None or meal.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Meal not found")
+    # Enforce 20-photo cap per meal
+    from sqlalchemy import func as _sql_func
+    existing = (await db.execute(
+        select(_sql_func.count()).select_from(MealPhoto).where(MealPhoto.meal_id == payload.meal_id)
+    )).scalar() or 0
+    if existing >= 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 photos per meal")
+    photo = MealPhoto(
+        id=payload.id or uuid.uuid4(),
+        meal_id=payload.meal_id,
+        user_id=user_id,
+        width=payload.width,
+        height=payload.height,
+        file_name_original=payload.file_name_original,
+        file_name_upload=payload.file_name_upload,
+        byte_size_original=payload.byte_size_original,
+        byte_size_upload=payload.byte_size_upload,
+        sha256=payload.sha256,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+        image_data_b64=payload.image_data_b64,
+        thumb_data_b64=payload.thumb_data_b64,
+    )
+    db.add(photo)
+    await db.flush()
+    await db.refresh(photo)
+    return MealPhotoSchema.model_validate(photo)
 
 
 @router.delete("/{photo_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)

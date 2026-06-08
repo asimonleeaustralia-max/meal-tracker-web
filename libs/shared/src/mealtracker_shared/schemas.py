@@ -208,6 +208,11 @@ class MealPhotoBase(BaseModel):
     sha256: str | None = None
     latitude: float = 0.0
     longitude: float = 0.0
+    # Inline base64-encoded JPEG. Used by the web frontend's "inline" upload path;
+    # iOS app continues to use the SAS blob flow and leaves this null.
+    image_data_b64: str | None = None
+    # Small (~200px) thumbnail for listings; cheap to ship in bulk
+    thumb_data_b64: str | None = None
 
 
 class MealPhotoCreate(MealPhotoBase):

@@ -28,6 +28,15 @@ async def lifespan(app: FastAPI):
         async with db.engine.begin() as conn:
             await conn.exec_driver_sql(f'CREATE SCHEMA IF NOT EXISTS "{settings.db_schema}"')
             await conn.run_sync(Base.metadata.create_all)
+            # Idempotent column adds for inline-photo storage (introduced after initial schema)
+            await conn.exec_driver_sql(
+                f'ALTER TABLE "{settings.db_schema}".meal_photos '
+                'ADD COLUMN IF NOT EXISTS image_data_b64 TEXT'
+            )
+            await conn.exec_driver_sql(
+                f'ALTER TABLE "{settings.db_schema}".meal_photos '
+                'ADD COLUMN IF NOT EXISTS thumb_data_b64 TEXT'
+            )
 
     init_db(db)
     yield

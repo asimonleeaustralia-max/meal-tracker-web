@@ -561,7 +561,7 @@ async function renderReports() {
   }
   const thisWeek = isoWeekStart(new Date());
   const weeks = [];
-  for (let i = 7; i >= 0; i--) {
+  for (let i = 0; i <= 7; i++) {
     const start = new Date(thisWeek);
     start.setDate(start.getDate() - i * 7);
     weeks.push({ start, calories: 0, protein: 0, carbohydrates: 0, fat: 0, count: 0 });
@@ -580,10 +580,10 @@ async function renderReports() {
   el.innerHTML = `
     <div class="reports-weeks">
       ${weeks.map((w, i) => {
-        const label = (i === weeks.length - 1) ? "This week" : `Week of ${fmtWeekLabel(w.start)}`;
+        const label = (i === 0) ? "This week" : `Week of ${fmtWeekLabel(w.start)}`;
         const pct = (w.calories / maxCal) * 100;
         return `
-          <div class="report-week ${i === weeks.length - 1 ? "current" : ""}">
+          <div class="report-week ${i === 0 ? "current" : ""}">
             <div class="report-week-header">
               <span class="report-week-label">${label}</span>
               <span class="report-week-meta">${w.count} meal${w.count === 1 ? "" : "s"}</span>

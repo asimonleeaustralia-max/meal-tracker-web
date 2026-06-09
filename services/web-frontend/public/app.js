@@ -2,6 +2,16 @@
 
 const API = "https://mealtracker476a-gateway.kindgrass-8e900679.australiaeast.azurecontainerapps.io/api";
 
+/** Inline SVG icons — class "icon" picks up sizing from CSS. */
+const ICONS = {
+  edit: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  delete: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+function iconHtml(name) {
+  return ICONS[name] || "";
+}
+
 const tokens = {
   get access()  { return sessionStorage.getItem("at"); },
   get refresh() { return sessionStorage.getItem("rt"); },
@@ -111,6 +121,103 @@ function escape(s) {
 }
 function num(v, d = 1) { return v == null ? "0" : Number(v).toFixed(d); }
 
+let _editingMealId = null;
+let _toastTimer = null;
+
+function showMealToast(message, type = "success") {
+  const el = document.getElementById("add-meal-toast");
+  if (!el) return;
+  el.textContent = message;
+  el.className = `header-toast ${type}`;
+  el.hidden = false;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.hidden = true; }, 4000);
+}
+
+function setMealFormMode(editing) {
+  const title = document.getElementById("meal-form-title");
+  const saveBtn = document.getElementById("save-meal-btn");
+  if (title) title.textContent = editing ? "Edit meal" : "Add a meal";
+  if (saveBtn) saveBtn.title = editing ? "Save changes" : "Save meal";
+}
+
+function switchToTab(name) {
+  const tabs = document.querySelectorAll(".tabs .tab");
+  const panes = document.querySelectorAll(".tab-pane");
+  for (const tab of tabs) {
+    tab.classList.toggle("active", tab.dataset.tab === name);
+  }
+  for (const p of panes) {
+    const isThis = p.id === "tab-" + name;
+    p.classList.toggle("active", isThis);
+    p.hidden = !isThis;
+  }
+  if (name === "history") refreshMeals();
+  if (name === "reports") renderReports();
+}
+
+function mealDateToLocalInput(iso) {
+  const d = new Date(iso);
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(d - tz).toISOString().slice(0, 16);
+}
+
+function populateMealForm(meal) {
+  const form = document.getElementById("add-meal-form");
+  if (!form) return;
+  form.reset();
+  form.querySelector('[name="title"]').value = meal.title || "";
+  form.querySelector('[name="date"]').value = mealDateToLocalInput(meal.date);
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.type === "number" && meal[el.name] != null) {
+      el.value = meal[el.name];
+    } else if (el.type === "checkbox" && el.name.endsWith("_is_guess")) {
+      el.checked = !!meal[el.name];
+      const toggle = el.closest(".guess-toggle");
+      if (toggle) {
+        toggle.classList.toggle("is-guess", el.checked);
+        const state = toggle.querySelector(".guess-state");
+        if (state) state.textContent = el.checked ? "guess" : "accurate";
+      }
+    }
+  }
+  initGuessToggles();
+  initNutrientValidation();
+}
+
+function buildMealPayload(form) {
+  const fd = new FormData(form);
+  const payload = {
+    title: fd.get("title"),
+    date: new Date(fd.get("date")).toISOString(),
+  };
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.type === "number") {
+      const v = Number(el.value);
+      if (!Number.isNaN(v) && v !== 0) payload[el.name] = v;
+    } else if (el.type === "checkbox" && el.name.endsWith("_is_guess")) {
+      payload[el.name] = el.checked;
+    }
+  }
+  return payload;
+}
+
+function resetMealForm() {
+  _editingMealId = null;
+  setMealFormMode(false);
+  const form = document.getElementById("add-meal-form");
+  if (form) {
+    form.reset();
+    for (const d of form.querySelectorAll("details")) d.removeAttribute("open");
+  }
+  pendingPhotos = [];
+  renderPhotoStrip();
+  setDefaultMealDate();
+  initGuessToggles();
+}
+
 // ---- Multi-photo upload UI ----
 let pendingPhotos = [];  // [{ data_b64, thumb_b64, width, height, byte_size, name }]
 const MAX_PHOTOS = 20;
@@ -215,61 +322,49 @@ function setDefaultMealDate() {
 
 document.getElementById("add-meal-form").onsubmit = async (e) => {
   e.preventDefault();
-  const errEl = document.getElementById("add-meal-error");
-  const okEl = document.getElementById("add-meal-success");
-  errEl.hidden = true; okEl.hidden = true;
+  const toast = document.getElementById("add-meal-toast");
+  if (toast) toast.hidden = true;
 
   const form = e.target;
-  const fd = new FormData(form);
-  const payload = {
-    title: fd.get("title"),
-    date: new Date(fd.get("date")).toISOString(),
-  };
-  for (const el of form.elements) {
-    if (!el.name) continue;
-    if (el.type === "number") {
-      const v = Number(el.value);
-      if (!Number.isNaN(v) && v !== 0) payload[el.name] = v;
-    } else if (el.type === "checkbox" && el.name.endsWith("_is_guess")) {
-      payload[el.name] = el.checked;
-    }
-  }
+  const payload = buildMealPayload(form);
+  const isEdit = !!_editingMealId;
 
-  const r = await api("/meals", { method: "POST", body: JSON.stringify(payload) });
+  const r = isEdit
+    ? await api(`/meals/${_editingMealId}`, { method: "PUT", body: JSON.stringify(payload) })
+    : await api("/meals", { method: "POST", body: JSON.stringify(payload) });
+
   if (!r.ok) {
-    errEl.textContent = await niceError(r);
-    errEl.hidden = false;
+    showMealToast(await niceError(r), "error");
     return;
   }
   const savedMeal = await r.json();
 
-  // Upload pending photos
   let photoErrors = 0;
-  for (const ph of pendingPhotos) {
-    const pr = await api("/photos/inline", {
-      method: "POST",
-      body: JSON.stringify({
-        meal_id: savedMeal.id,
-        image_data_b64: ph.data_b64,
-        thumb_data_b64: ph.thumb_b64,
-        width: ph.width,
-        height: ph.height,
-        file_name_original: ph.name,
-        byte_size_original: ph.byte_size,
-      }),
-    });
-    if (!pr.ok) photoErrors++;
+  if (!isEdit) {
+    for (const ph of pendingPhotos) {
+      const pr = await api("/photos/inline", {
+        method: "POST",
+        body: JSON.stringify({
+          meal_id: savedMeal.id,
+          image_data_b64: ph.data_b64,
+          thumb_data_b64: ph.thumb_b64,
+          width: ph.width,
+          height: ph.height,
+          file_name_original: ph.name,
+          byte_size_original: ph.byte_size,
+        }),
+      });
+      if (!pr.ok) photoErrors++;
+    }
   }
-  pendingPhotos = [];
-  renderPhotoStrip();
 
-  okEl.textContent = photoErrors > 0
-    ? `Meal saved (${photoErrors} photo(s) failed).`
-    : "Meal saved.";
-  okEl.hidden = false;
-  form.reset();
-  for (const d of form.querySelectorAll("details")) d.removeAttribute("open");
-  setDefaultMealDate();
+  const msg = isEdit
+    ? "Changes saved."
+    : photoErrors > 0
+      ? `Meal saved (${photoErrors} photo(s) failed).`
+      : "Meal saved.";
+  showMealToast(msg, "success");
+  resetMealForm();
   refreshMeals();
 };
 
@@ -450,7 +545,7 @@ async function refreshMeals() {
   renderDailyTotals(meals);
 
   if (meals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center;padding:16px;">No meals saved yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:16px;">No meals saved yet.</td></tr>';
     return;
   }
   for (const m of meals) {
@@ -464,8 +559,26 @@ async function refreshMeals() {
       <td>${num(m.protein, 1)}</td>
       <td>${num(m.carbohydrates, 1)}</td>
       <td>${num(m.fat, 1)}</td>
-      <td class="photos-cell"><span class="muted">…</span></td>`;
-    tr.addEventListener("click", () => toggleExpand(tr, m));
+      <td class="photos-cell"><span class="muted">…</span></td>
+      <td class="col-actions">
+        <div class="row-actions">
+          <button type="button" class="icon-btn meal-edit-btn" title="Edit meal" aria-label="Edit meal">${iconHtml("edit")}</button>
+          <button type="button" class="icon-btn icon-btn-danger meal-delete-btn" title="Delete meal" aria-label="Delete meal">${iconHtml("delete")}</button>
+        </div>
+      </td>`;
+
+    tr.querySelector(".meal-edit-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      startEditMeal(m);
+    });
+    tr.querySelector(".meal-delete-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteMeal(m);
+    });
+    tr.addEventListener("click", (e) => {
+      if (e.target.closest(".row-actions")) return;
+      toggleExpand(tr, m);
+    });
     tbody.appendChild(tr);
   }
   const results = await Promise.all(meals.map(m => fetchPhotosForMeal(m.id)));
@@ -477,9 +590,33 @@ async function refreshMeals() {
     if (cell) {
       cell.innerHTML = photos.length === 0
         ? '<span class="muted">—</span>'
-        : `📷 ${photos.length}`;
+        : `${photos.length}`;
     }
   }
+}
+
+function startEditMeal(meal) {
+  _editingMealId = meal.id;
+  setMealFormMode(true);
+  populateMealForm(meal);
+  pendingPhotos = [];
+  renderPhotoStrip();
+  switchToTab("log");
+  document.getElementById("add-meal-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function deleteMeal(meal) {
+  if (!confirm(`Delete "${meal.title || "this meal"}"? This cannot be undone.`)) return;
+  const r = await api(`/meals/${meal.id}`, { method: "DELETE" });
+  if (!r.ok) {
+    alert("Failed to delete meal.");
+    return;
+  }
+  if (_editingMealId === meal.id) resetMealForm();
+  delete _photosByMeal[meal.id];
+  const expandRow = document.querySelector(`tr.meal-expand-row[data-meal-id="${meal.id}"]`);
+  expandRow?.remove();
+  await refreshMeals();
 }
 
 function toggleExpand(tr, meal) {
@@ -494,7 +631,7 @@ function toggleExpand(tr, meal) {
   expandTr.className = "meal-expand-row";
   expandTr.dataset.mealId = meal.id;
   const td = document.createElement("td");
-  td.colSpan = 7;
+  td.colSpan = 8;
   expandTr.appendChild(td);
   tr.parentNode.insertBefore(expandTr, tr.nextSibling);
   renderExpandRow(meal);
@@ -565,7 +702,7 @@ async function deletePhoto(photoId, meal) {
   if (tr) {
     const cell = tr.querySelector(".photos-cell");
     const n = _photosByMeal[meal.id].length;
-    if (cell) cell.innerHTML = n === 0 ? '<span class="muted">—</span>' : `📷 ${n}`;
+    if (cell) cell.innerHTML = n === 0 ? '<span class="muted">—</span>' : `${n}`;
   }
 }
 
@@ -640,7 +777,7 @@ async function addPhotosToMeal(meal) {
     if (tr) {
       const cell = tr.querySelector(".photos-cell");
       const n = (_photosByMeal[meal.id] || []).length;
-      if (cell) cell.innerHTML = n === 0 ? '<span class="muted">—</span>' : `📷 ${n}`;
+      if (cell) cell.innerHTML = n === 0 ? '<span class="muted">—</span>' : `${n}`;
     }
   });
   input.click();
@@ -671,6 +808,52 @@ async function openPhotoModal(photoId) {
 document.getElementById("refresh-meals").onclick = refreshMeals;
 
 // ---- Reports tab ----
+const REPORT_NUTRIENT_SETS = {
+  macros: [
+    { key: "calories", label: "Calories", unit: "kcal", decimals: 0 },
+    { key: "protein", label: "Protein", unit: "g", decimals: 0 },
+    { key: "carbohydrates", label: "Carbs", unit: "g", decimals: 0 },
+    { key: "fat", label: "Fat", unit: "g", decimals: 0 },
+  ],
+  extended: [
+    { key: "calories", label: "Calories", unit: "kcal", decimals: 0 },
+    { key: "protein", label: "Protein", unit: "g", decimals: 0 },
+    { key: "carbohydrates", label: "Carbs", unit: "g", decimals: 0 },
+    { key: "fat", label: "Fat", unit: "g", decimals: 0 },
+    { key: "sodium", label: "Sodium", unit: "mg", decimals: 0 },
+    { key: "sugars", label: "Sugars", unit: "g", decimals: 1 },
+    { key: "fibre", label: "Fibre", unit: "g", decimals: 1 },
+    { key: "saturated_fat", label: "Sat. fat", unit: "g", decimals: 1 },
+    { key: "starch", label: "Starch", unit: "g", decimals: 1 },
+  ],
+  full: [
+    { key: "calories", label: "Calories", unit: "kcal", decimals: 0 },
+    { key: "protein", label: "Protein", unit: "g", decimals: 0 },
+    { key: "carbohydrates", label: "Carbs", unit: "g", decimals: 0 },
+    { key: "fat", label: "Fat", unit: "g", decimals: 0 },
+    { key: "sodium", label: "Sodium", unit: "mg", decimals: 0 },
+    { key: "sugars", label: "Sugars", unit: "g", decimals: 1 },
+    { key: "fibre", label: "Fibre", unit: "g", decimals: 1 },
+    { key: "saturated_fat", label: "Sat. fat", unit: "g", decimals: 1 },
+    { key: "monounsaturated_fat", label: "Mono fat", unit: "g", decimals: 1 },
+    { key: "polyunsaturated_fat", label: "Poly fat", unit: "g", decimals: 1 },
+    { key: "trans_fat", label: "Trans fat", unit: "g", decimals: 1 },
+    { key: "omega3", label: "Omega-3", unit: "g", decimals: 1 },
+    { key: "omega6", label: "Omega-6", unit: "g", decimals: 1 },
+    { key: "animal_protein", label: "Animal protein", unit: "g", decimals: 1 },
+    { key: "plant_protein", label: "Plant protein", unit: "g", decimals: 1 },
+    { key: "alcohol", label: "Alcohol", unit: "g", decimals: 1 },
+    { key: "caffeine", label: "Caffeine", unit: "mg", decimals: 0 },
+    { key: "vitamin_a", label: "Vit A", unit: "mg", decimals: 2 },
+    { key: "vitamin_c", label: "Vit C", unit: "mg", decimals: 0 },
+    { key: "vitamin_d", label: "Vit D", unit: "mg", decimals: 2 },
+    { key: "calcium", label: "Calcium", unit: "mg", decimals: 0 },
+    { key: "iron", label: "Iron", unit: "mg", decimals: 1 },
+    { key: "potassium", label: "Potassium", unit: "mg", decimals: 0 },
+    { key: "magnesium", label: "Magnesium", unit: "mg", decimals: 0 },
+  ],
+};
+
 function isoWeekStart(d) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -678,56 +861,174 @@ function isoWeekStart(d) {
   x.setDate(x.getDate() - day);
   return x;
 }
-function fmtWeekLabel(d) {
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+function startOfMonth(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(1);
+  return x;
 }
+
+function fmtShortDate(d) {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function fmtMonthLabel(d) {
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function bucketKeyForMeal(mealDate, period) {
+  const d = new Date(mealDate);
+  if (period === "week") return isoWeekStart(d).getTime();
+  if (period === "month") return startOfMonth(d).getTime();
+  return startOfDay(d).getTime();
+}
+
+function buildReportBuckets(period) {
+  const now = new Date();
+  const buckets = [];
+
+  if (period === "week") {
+    const thisWeek = isoWeekStart(now);
+    for (let i = 0; i <= 7; i++) {
+      const start = new Date(thisWeek);
+      start.setDate(start.getDate() - i * 7);
+      buckets.push({ start, key: start.getTime(), count: 0, totals: {} });
+    }
+  } else if (period === "month") {
+    const thisMonth = startOfMonth(now);
+    for (let i = 0; i <= 11; i++) {
+      const start = new Date(thisMonth);
+      start.setMonth(start.getMonth() - i);
+      buckets.push({ start, key: start.getTime(), count: 0, totals: {} });
+    }
+  } else if (period === "day") {
+    const today = startOfDay(now);
+    for (let i = 0; i < 30; i++) {
+      const start = new Date(today);
+      start.setDate(start.getDate() - i);
+      buckets.push({ start, key: start.getTime(), count: 0, totals: {} });
+    }
+  } else {
+    const fromEl = document.getElementById("report-custom-from");
+    const toEl = document.getElementById("report-custom-to");
+    const from = fromEl?.value ? startOfDay(new Date(fromEl.value + "T00:00:00")) : null;
+    const to = toEl?.value ? startOfDay(new Date(toEl.value + "T00:00:00")) : null;
+    if (!from || !to || from > to) return [];
+    const cur = new Date(from);
+    while (cur <= to) {
+      buckets.push({ start: new Date(cur), key: cur.getTime(), count: 0, totals: {} });
+      cur.setDate(cur.getDate() + 1);
+    }
+    buckets.reverse();
+  }
+  return buckets;
+}
+
+function periodLabel(bucket, period, index) {
+  if (period === "week") {
+    return index === 0 ? "This week" : `Week of ${fmtShortDate(bucket.start)}`;
+  }
+  if (period === "month") {
+    return index === 0 ? "This month" : fmtMonthLabel(bucket.start);
+  }
+  if (period === "day") {
+    const today = startOfDay(new Date()).getTime();
+    return bucket.start.getTime() === today ? "Today" : fmtShortDate(bucket.start);
+  }
+  return fmtShortDate(bucket.start);
+}
+
+function avgPerDay(value, period, bucket) {
+  if (period === "week") return value / 7;
+  if (period === "month") {
+    const end = new Date(bucket.start);
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(0);
+    const days = end.getDate();
+    return value / days;
+  }
+  return value;
+}
+
+function renderNutrientGrid(totals, nutrients) {
+  return `
+    <div class="report-nutrient-grid">
+      ${nutrients.map((n) => {
+        const v = Number(totals[n.key]) || 0;
+        const shown = v.toFixed(n.decimals);
+        return `<div class="report-nutrient-item"><span>${n.label}</span><span>${shown} ${n.unit}</span></div>`;
+      }).join("")}
+    </div>
+  `;
+}
+
 async function renderReports() {
   const el = document.getElementById("reports-content");
   if (!el) return;
-  el.innerHTML = "<p class=\"muted\">Loading…</p>";
+  el.innerHTML = '<p class="muted">Loading…</p>';
+
   let meals = _mealsCache;
   if (!meals || meals.length === 0) {
     const r = await api("/meals?limit=500");
-    if (r.ok) meals = await r.json();
-    else meals = [];
+    if (r.ok) {
+      meals = await r.json();
+      _mealsCache = meals;
+    } else {
+      meals = [];
+    }
   }
-  const thisWeek = isoWeekStart(new Date());
-  const weeks = [];
-  for (let i = 0; i <= 7; i++) {
-    const start = new Date(thisWeek);
-    start.setDate(start.getDate() - i * 7);
-    weeks.push({ start, calories: 0, protein: 0, carbohydrates: 0, fat: 0, count: 0 });
+
+  const period = document.getElementById("report-period")?.value || "week";
+  const nutrientSet = document.getElementById("report-nutrients")?.value || "macros";
+  const nutrients = REPORT_NUTRIENT_SETS[nutrientSet] || REPORT_NUTRIENT_SETS.macros;
+  const buckets = buildReportBuckets(period);
+
+  if (buckets.length === 0) {
+    el.innerHTML = '<p class="report-summary-empty">Choose a valid custom date range.</p>';
+    return;
   }
+
+  const bucketMap = new Map(buckets.map((b) => [b.key, b]));
   for (const m of meals) {
-    const ws = isoWeekStart(new Date(m.date));
-    const bucket = weeks.find(w => w.start.getTime() === ws.getTime());
+    const key = bucketKeyForMeal(m.date, period === "custom" ? "day" : period);
+    const bucket = bucketMap.get(key);
     if (!bucket) continue;
-    bucket.calories += Number(m.calories) || 0;
-    bucket.protein += Number(m.protein) || 0;
-    bucket.carbohydrates += Number(m.carbohydrates) || 0;
-    bucket.fat += Number(m.fat) || 0;
     bucket.count += 1;
+    for (const n of nutrients) {
+      bucket.totals[n.key] = (bucket.totals[n.key] || 0) + (Number(m[n.key]) || 0);
+    }
   }
-  const maxCal = Math.max(1, ...weeks.map(w => w.calories));
+
+  const maxCal = Math.max(1, ...buckets.map((b) => b.totals.calories || 0));
+
+  if (buckets.every((b) => b.count === 0)) {
+    el.innerHTML = '<p class="report-summary-empty">No meals in this period.</p>';
+    return;
+  }
+
   el.innerHTML = `
-    <div class="reports-weeks">
-      ${weeks.map((w, i) => {
-        const label = (i === 0) ? "This week" : `Week of ${fmtWeekLabel(w.start)}`;
-        const pct = (w.calories / maxCal) * 100;
+    <div class="reports-periods">
+      ${buckets.map((b, i) => {
+        const cal = b.totals.calories || 0;
+        const pct = (cal / maxCal) * 100;
+        const avg = avgPerDay(cal, period === "custom" ? "day" : period, b);
+        const primary = nutrients.slice(0, 4);
         return `
-          <div class="report-week ${i === 0 ? "current" : ""}">
-            <div class="report-week-header">
-              <span class="report-week-label">${label}</span>
-              <span class="report-week-meta">${w.count} meal${w.count === 1 ? "" : "s"}</span>
+          <div class="report-period ${i === 0 ? "current" : ""}">
+            <div class="report-period-header">
+              <span class="report-period-label">${periodLabel(b, period === "custom" ? "day" : period, i)}</span>
+              <span class="report-period-meta">${b.count} meal${b.count === 1 ? "" : "s"}</span>
             </div>
             <div class="report-bar"><div class="report-bar-fill" style="width:${pct}%"></div></div>
-            <div class="report-week-stats">
-              <span><strong>${w.calories.toFixed(0)}</strong> kcal</span>
-              <span>P <strong>${w.protein.toFixed(0)}g</strong></span>
-              <span>C <strong>${w.carbohydrates.toFixed(0)}g</strong></span>
-              <span>F <strong>${w.fat.toFixed(0)}g</strong></span>
-              <span class="muted">${(w.calories / 7).toFixed(0)}/day avg</span>
+            <div class="report-period-stats">
+              ${primary.map((n) => {
+                const v = b.totals[n.key] || 0;
+                return `<span>${n.label} <strong>${v.toFixed(n.decimals)}</strong> ${n.unit}</span>`;
+              }).join("")}
+              <span class="muted">${avg.toFixed(0)}/day avg kcal</span>
             </div>
+            ${renderNutrientGrid(b.totals, nutrients)}
           </div>
         `;
       }).join("")}
@@ -735,4 +1036,76 @@ async function renderReports() {
   `;
 }
 
+function initReportsControls() {
+  const periodSel = document.getElementById("report-period");
+  const fromWrap = document.getElementById("report-custom-from-wrap");
+  const toWrap = document.getElementById("report-custom-to-wrap");
+  const fromInput = document.getElementById("report-custom-from");
+  const toInput = document.getElementById("report-custom-to");
+
+  const today = startOfDay(new Date());
+  const monthAgo = new Date(today);
+  monthAgo.setDate(monthAgo.getDate() - 30);
+  if (fromInput && !fromInput.value) fromInput.value = monthAgo.toISOString().slice(0, 10);
+  if (toInput && !toInput.value) toInput.value = today.toISOString().slice(0, 10);
+
+  function syncCustomVisibility() {
+    const custom = periodSel?.value === "custom";
+    if (fromWrap) fromWrap.hidden = !custom;
+    if (toWrap) toWrap.hidden = !custom;
+  }
+
+  periodSel?.addEventListener("change", () => {
+    syncCustomVisibility();
+    renderReports();
+  });
+  document.getElementById("report-nutrients")?.addEventListener("change", renderReports);
+  fromInput?.addEventListener("change", renderReports);
+  toInput?.addEventListener("change", renderReports);
+  syncCustomVisibility();
+
+  document.getElementById("export-json-btn")?.addEventListener("click", exportUserDataJson);
+}
+
+async function exportUserDataJson() {
+  const btn = document.getElementById("export-json-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api("/meals?limit=1000");
+    if (!r.ok) throw new Error(await niceError(r));
+    const meals = await r.json();
+    const photoResults = await Promise.all(
+      meals.map(async (m) => {
+        try {
+          const pr = await api(`/photos/by-meal/${m.id}`);
+          return pr.ok ? await pr.json() : [];
+        } catch {
+          return [];
+        }
+      })
+    );
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      app: "MacrosSimple",
+      version: 1,
+      meals: meals.map((m, i) => ({
+        ...m,
+        photos: photoResults[i] || [],
+      })),
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `macrossimple-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(`Export failed: ${e.message || e}`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+initReportsControls();
 render();

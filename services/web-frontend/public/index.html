@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MacrosSimple</title>
-  <link rel="stylesheet" href="/styles.css?v=28" />
+  <link rel="stylesheet" href="/styles.css?v=29" />
 </head>
 <body>
   <header>
@@ -16,21 +16,25 @@
     <!-- LOGIN / SIGNUP -->
     <section id="auth-section">
       <div class="card">
-        <h2>Sign in</h2>
+        <h2 data-i18n="sign_in">Sign in</h2>
         <div id="login-error" class="error" hidden></div>
 
         <form id="login-form">
-          <label>Email <input type="email" name="email" required autocomplete="username"></label>
-          <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
-          <button type="submit">Sign in</button>
-          <button type="button" id="signup-btn" class="ghost">Create account</button>
+          <label><span data-i18n="email">Email</span> <input type="email" name="email" required autocomplete="username"></label>
+          <label><span data-i18n="password">Password</span> <input type="password" name="password" required autocomplete="current-password"></label>
+          <button type="submit" data-i18n="sign_in">Sign in</button>
+          <button type="button" id="signup-btn" class="ghost" data-i18n="create_account">Create account</button>
         </form>
 
         <div class="oauth-row">
-          <a class="oauth-btn google"   href="/api/auth/oauth/google/login">Continue with Google</a>
-          <a class="oauth-btn apple"    href="/api/auth/oauth/apple/login">Continue with Apple</a>
-          <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login">Continue with Facebook</a>
+          <a class="oauth-btn google"   href="/api/auth/oauth/google/login" data-i18n="oauth_google">Continue with Google</a>
+          <a class="oauth-btn apple"    href="/api/auth/oauth/apple/login" data-i18n="oauth_apple">Continue with Apple</a>
+          <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login" data-i18n="oauth_facebook">Continue with Facebook</a>
         </div>
+        <label class="auth-language settings-field">
+          <span data-i18n="settings_language">Language</span>
+          <select id="language-select-guest"></select>
+        </label>
       </div>
       
       </div>
@@ -39,32 +43,33 @@
     <!-- AUTHENTICATED APP -->
     <section id="app-section" hidden>
       <nav class="tabs">
-        <button type="button" class="tab active" data-tab="log">Log meal</button>
-        <button type="button" class="tab" data-tab="history">History</button>
-        <button type="button" class="tab" data-tab="reports">Reports</button>
+        <button type="button" class="tab active" data-tab="log" data-i18n="tab_log">Log meal</button>
+        <button type="button" class="tab" data-tab="history" data-i18n="tab_history">History</button>
+        <button type="button" class="tab" data-tab="reports" data-i18n="tab_reports">Reports</button>
+        <button type="button" class="tab" data-tab="settings" data-i18n="tab_settings">Settings</button>
       </nav>
 
       <div id="tab-log" class="tab-pane active">
         <div class="card">
           <div class="card-header">
             <div class="card-header-left">
-              <h2 id="meal-form-title">Add a meal</h2>
+              <h2 id="meal-form-title" data-i18n="add_meal">Add a meal</h2>
               <span id="add-meal-toast" class="header-toast" hidden></span>
             </div>
             <div class="card-header-actions">
               <input type="file" id="meal-photo" accept="image/*" multiple hidden>
-              <button type="button" id="photo-btn" class="icon-btn" title="Add photo" aria-label="Add photo">
+              <button type="button" id="photo-btn" class="icon-btn" data-i18n-title="add_photo" data-i18n-aria="add_photo" title="Add photo" aria-label="Add photo">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m21 15-5-5L5 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <button type="submit" form="add-meal-form" id="save-meal-btn" class="icon-btn icon-btn-primary" title="Save meal" aria-label="Save meal">
+              <button type="submit" form="add-meal-form" id="save-meal-btn" class="icon-btn icon-btn-primary" data-i18n-title="save_meal" data-i18n-aria="save_meal" title="Save meal" aria-label="Save meal">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 21 17 13 7 13 7 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 3 7 8 15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
           </div>
           <div id="photo-strip" class="photo-strip" hidden></div>
           <form id="add-meal-form">
-          <label>Title <input type="text" name="title" placeholder="e.g. Lunch — chicken salad" required></label>
-          <label>Date &amp; time <input type="datetime-local" name="date" required></label>
+          <label><span data-i18n="title">Title</span> <input type="text" name="title" data-i18n-placeholder="title_placeholder" placeholder="e.g. Lunch — chicken salad" required></label>
+          <label><span data-i18n="date_time">Date &amp; time</span> <input type="datetime-local" name="date" required></label>
 
           <div class="field-row">
             <label class="field-label">Calories</label>
@@ -248,7 +253,7 @@
             </details>
 
           <details>
-            <summary>Stimulants &amp; specials</summary>
+            <summary data-i18n="stimulants">Stimulants &amp; specials</summary>
             <div class="field-row"><label class="field-label">Alcohol (g)</label><input type="number" name="alcohol" min="0" step="any" value="0"><div class="guess-toggle" data-target="alcohol_is_guess"><input type="checkbox" name="alcohol_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
             <div class="field-row"><label class="field-label">Nicotine (mg)</label><input type="number" name="nicotine" min="0" step="any" value="0"><div class="guess-toggle" data-target="nicotine_is_guess"><input type="checkbox" name="nicotine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
             <div class="field-row"><label class="field-label">Theobromine (mg)</label><input type="number" name="theobromine" min="0" step="any" value="0"><div class="guess-toggle" data-target="theobromine_is_guess"><input type="checkbox" name="theobromine_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
@@ -258,7 +263,7 @@
           </details>
 
           <details>
-            <summary>Vitamins</summary>
+            <summary data-i18n="vitamins">Vitamins</summary>
             <div class="field-row"><label class="field-label">Vitamin A (mg)</label><input type="number" name="vitamin_a" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_a_is_guess"><input type="checkbox" name="vitamin_a_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
             <div class="field-row"><label class="field-label">Vitamin B (mg)</label><input type="number" name="vitamin_b" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_b_is_guess"><input type="checkbox" name="vitamin_b_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
             <div class="field-row"><label class="field-label">Vitamin C (mg)</label><input type="number" name="vitamin_c" min="0" step="any" value="0"><div class="guess-toggle" data-target="vitamin_c_is_guess"><input type="checkbox" name="vitamin_c_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
@@ -268,7 +273,7 @@
           </details>
 
           <details>
-            <summary>Minerals</summary>
+            <summary data-i18n="minerals">Minerals</summary>
             <div class="field-row"><label class="field-label">Calcium (mg)</label><input type="number" name="calcium" min="0" step="any" value="0"><div class="guess-toggle" data-target="calcium_is_guess"><input type="checkbox" name="calcium_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
             <div class="field-row"><label class="field-label">Iron (mg)</label><input type="number" name="iron" min="0" step="any" value="0"><div class="guess-toggle" data-target="iron_is_guess"><input type="checkbox" name="iron_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
             <div class="field-row"><label class="field-label">Potassium (mg)</label><input type="number" name="potassium" min="0" step="any" value="0"><div class="guess-toggle" data-target="potassium_is_guess"><input type="checkbox" name="potassium_is_guess" checked><span class="guess-track"><span class="guess-thumb"></span></span><span class="guess-state">guess</span></div></div>
@@ -285,14 +290,14 @@
       <div id="tab-history" class="tab-pane" hidden>
         <div class="card">
           <div class="history-header">
-            <h2>Your meals</h2>
-            <button type="button" id="refresh-meals" class="icon-btn" title="Refresh" aria-label="Refresh">
+            <h2 data-i18n="your_meals">Your meals</h2>
+            <button type="button" id="refresh-meals" class="icon-btn" data-i18n-title="refresh" data-i18n-aria="refresh" title="Refresh" aria-label="Refresh">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="21 3 21 9 15 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
           <div id="daily-totals" class="daily-totals"></div>
           <table id="meals-table">
-            <thead><tr><th>Date</th><th>Title</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>Photos</th><th class="col-actions"></th></tr></thead>
+            <thead><tr><th data-i18n="th_date">Date</th><th data-i18n="th_title">Title</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th data-i18n="th_photos">Photos</th><th class="col-actions"></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -300,40 +305,53 @@
       <div id="tab-reports" class="tab-pane" hidden>
         <div class="card">
           <div class="reports-header">
-            <h2>Reports</h2>
-            <button type="button" id="export-json-btn" class="btn-with-icon" title="Export all data as JSON">
+            <h2 data-i18n="reports">Reports</h2>
+            <button type="button" id="export-json-btn" class="btn-with-icon" data-i18n-title="export_json" title="Export all data as JSON">
               <span class="export-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 10 12 15 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
-              Export JSON
+              <span data-i18n="export_json">Export JSON</span>
             </button>
           </div>
           <div class="reports-controls">
-            <label>Period
-              <select id="report-period">
-                <option value="week">Weekly</option>
-                <option value="month">Monthly</option>
-                <option value="day">Daily (30 days)</option>
-                <option value="custom">Custom range</option>
+            <label><span data-i18n="period">Period</span>
+              <select id="report-period" data-i18n-option>
+                <option value="week" data-i18n-key="period_week">Weekly</option>
+                <option value="month" data-i18n-key="period_month">Monthly</option>
+                <option value="day" data-i18n-key="period_day">Daily (30 days)</option>
+                <option value="custom" data-i18n-key="period_custom">Custom range</option>
               </select>
             </label>
-            <label id="report-custom-from-wrap" hidden>From
+            <label id="report-custom-from-wrap" hidden><span data-i18n="from">From</span>
               <input type="date" id="report-custom-from">
             </label>
-            <label id="report-custom-to-wrap" hidden>To
+            <label id="report-custom-to-wrap" hidden><span data-i18n="to">To</span>
               <input type="date" id="report-custom-to">
             </label>
-            <label>Nutrients
-              <select id="report-nutrients">
-                <option value="macros">Macros (kcal, P, C, F)</option>
-                <option value="extended">Extended (+ sodium, sugars, fibre)</option>
-                <option value="full">Full detail (vitamins, minerals, stimulants)</option>
+            <label><span data-i18n="nutrients">Nutrients</span>
+              <select id="report-nutrients" data-i18n-option>
+                <option value="macros" data-i18n-key="nutrients_macros">Macros (kcal, P, C, F)</option>
+                <option value="extended" data-i18n-key="nutrients_extended">Extended (+ sodium, sugars, fibre)</option>
+                <option value="full" data-i18n-key="nutrients_full">Full detail (vitamins, minerals, stimulants)</option>
               </select>
             </label>
           </div>
           <div id="reports-content"></div>
         </div>
+      </div>
+
+      <div id="tab-settings" class="tab-pane" hidden>
+        <div class="card">
+          <h2 data-i18n="settings">Settings</h2>
+          <p class="muted settings-hint" data-i18n="settings_language_hint">Choose the language for the entire app.</p>
+          <label class="settings-field">
+            <span data-i18n="settings_language">Language</span>
+            <select id="language-select"></select>
+          </label>
+        </div>
+      </div>
     </section>
   </main>
 
-  <script src="/app.js?v=28"></script>
+  <script src="/i18n.js?v=29"></script>
+  <script src="/app.js?v=29"></script>
 </body>
 </html>

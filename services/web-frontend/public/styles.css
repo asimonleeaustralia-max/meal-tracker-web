@@ -126,6 +126,30 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
 }
 
 /* MacrosSimple wordmark */
+#user-bar .user-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-hint {
+  margin: 0 0 16px;
+}
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.settings-field select {
+  font-size: 1rem;
+}
+.auth-language {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
 header h1.brand {
   font-size: 1.9rem;
   font-weight: 800;

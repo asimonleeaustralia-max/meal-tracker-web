@@ -1,9 +1,11 @@
 // MacrosSimple web frontend. All API calls go through the gateway.
 
 const API = "https://mealtracker476a-gateway.kindgrass-8e900679.australiaeast.azurecontainerapps.io/api";
+const t = (key, params) => I18n.t(key, params);
 
 /** Inline SVG icons — class "icon" picks up sizing from CSS. */
 const ICONS = {
+  settings: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   edit: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   delete: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
 };
@@ -52,7 +54,7 @@ async function api(path, opts = {}) {
     } else {
       tokens.clear();
       render();
-      throw new Error("Session expired");
+      throw new Error(t("session_expired"));
     }
   }
   return resp;
@@ -66,7 +68,13 @@ function render() {
   const bar = document.getElementById("user-bar");
   bar.textContent = authed ? "" : "";
   if (authed) {
-    bar.innerHTML = `<button id="logout-btn" class="ghost">Sign out</button>`;
+    bar.innerHTML = `
+      <div class="user-bar-actions">
+        <button type="button" id="header-settings-btn" class="icon-btn" title="${escape(t("open_settings"))}" aria-label="${escape(t("open_settings"))}">${iconHtml("settings")}</button>
+        <button type="button" id="logout-btn" class="ghost" data-i18n="sign_out">Sign out</button>
+      </div>`;
+    I18n.applyStaticTranslations(bar);
+    document.getElementById("header-settings-btn").onclick = () => switchToTab("settings");
     document.getElementById("logout-btn").onclick = () => { tokens.clear(); render(); };
     refreshMeals();
     setDefaultMealDate();
@@ -137,8 +145,18 @@ function showMealToast(message, type = "success") {
 function setMealFormMode(editing) {
   const title = document.getElementById("meal-form-title");
   const saveBtn = document.getElementById("save-meal-btn");
-  if (title) title.textContent = editing ? "Edit meal" : "Add a meal";
-  if (saveBtn) saveBtn.title = editing ? "Save changes" : "Save meal";
+  const titleKey = editing ? "edit_meal" : "add_meal";
+  const saveKey = editing ? "save_changes" : "save_meal";
+  if (title) {
+    title.dataset.i18n = titleKey;
+    title.textContent = t(titleKey);
+  }
+  if (saveBtn) {
+    saveBtn.dataset.i18nTitle = saveKey;
+    saveBtn.dataset.i18nAria = saveKey;
+    saveBtn.title = t(saveKey);
+    saveBtn.setAttribute("aria-label", t(saveKey));
+  }
 }
 
 function switchToTab(name) {
@@ -154,6 +172,7 @@ function switchToTab(name) {
   }
   if (name === "history") refreshMeals();
   if (name === "reports") renderReports();
+  if (name === "settings") syncLanguageSelects();
 }
 
 function mealDateToLocalInput(iso) {
@@ -178,7 +197,7 @@ function populateMealForm(meal) {
       if (toggle) {
         toggle.classList.toggle("is-guess", el.checked);
         const state = toggle.querySelector(".guess-state");
-        if (state) state.textContent = el.checked ? "guess" : "accurate";
+        if (state) state.textContent = el.checked ? t("guess") : t("accurate");
       }
     }
   }
@@ -288,14 +307,14 @@ function initPhotoFlow() {
   fileInput.addEventListener("change", async () => {
     const remaining = MAX_PHOTOS - pendingPhotos.length;
     if (remaining <= 0) {
-      alert(`Maximum ${MAX_PHOTOS} photos per meal.`);
+      alert(t("max_photos_meal", { n: MAX_PHOTOS }));
       fileInput.value = "";
       return;
     }
     const all = Array.from(fileInput.files);
     const files = all.slice(0, remaining);
     if (all.length > remaining) {
-      alert(`Only added ${remaining} photo(s) — limit is ${MAX_PHOTOS} per meal.`);
+      alert(t("max_photos_add", { n: remaining, max: MAX_PHOTOS }));
     }
     for (const file of files) {
       try {
@@ -359,10 +378,10 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
   }
 
   const msg = isEdit
-    ? "Changes saved."
+    ? t("changes_saved")
     : photoErrors > 0
-      ? `Meal saved (${photoErrors} photo(s) failed).`
-      : "Meal saved.";
+      ? t("meal_saved_photos_failed", { n: photoErrors })
+      : t("meal_saved");
   showMealToast(msg, "success");
   resetMealForm();
   refreshMeals();
@@ -376,7 +395,7 @@ function initGuessToggles() {
     if (!cb || !state) continue;
     const update = () => {
       t.classList.toggle("is-guess", cb.checked);
-      state.textContent = cb.checked ? "guess" : "accurate";
+      state.textContent = cb.checked ? t("guess") : t("accurate");
     };
     update();
     if (!t.dataset.wired) {
@@ -398,7 +417,7 @@ function initGuessToggles() {
         const toggle = cb.closest(".guess-toggle");
         if (toggle) {
           toggle.classList.remove("is-guess");
-          toggle.querySelector(".guess-state").textContent = "accurate";
+          toggle.querySelector(".guess-state").textContent = t("accurate");
         }
       }
     });
@@ -498,6 +517,7 @@ function initTabs() {
       }
       if (name === "history") refreshMeals();
       if (name === "reports") renderReports();
+      if (name === "settings") syncLanguageSelects();
     });
   }
 }
@@ -517,12 +537,12 @@ function renderDailyTotals(meals) {
   if (!el) return;
   el.innerHTML = `
     <div class="totals-row">
-      <span class="totals-label">Today</span>
+      <span class="totals-label">${t("today")}</span>
       <span class="totals-num"><strong>${sum("calories").toFixed(0)}</strong> kcal</span>
       <span class="totals-num">P <strong>${sum("protein").toFixed(0)}g</strong></span>
       <span class="totals-num">C <strong>${sum("carbohydrates").toFixed(0)}g</strong></span>
       <span class="totals-num">F <strong>${sum("fat").toFixed(0)}g</strong></span>
-      <span class="totals-meta">${todays.length} meal${todays.length === 1 ? "" : "s"}</span>
+      <span class="totals-meta">${todays.length} ${todays.length === 1 ? t("meals_one") : t("meals_many")}</span>
     </div>
   `;
 }
@@ -545,7 +565,7 @@ async function refreshMeals() {
   renderDailyTotals(meals);
 
   if (meals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:16px;">No meals saved yet.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center;padding:16px;">${escape(t("no_meals"))}</td></tr>`;
     return;
   }
   for (const m of meals) {
@@ -562,8 +582,8 @@ async function refreshMeals() {
       <td class="photos-cell"><span class="muted">…</span></td>
       <td class="col-actions">
         <div class="row-actions">
-          <button type="button" class="icon-btn meal-edit-btn" title="Edit meal" aria-label="Edit meal">${iconHtml("edit")}</button>
-          <button type="button" class="icon-btn icon-btn-danger meal-delete-btn" title="Delete meal" aria-label="Delete meal">${iconHtml("delete")}</button>
+          <button type="button" class="icon-btn meal-edit-btn" title="${escape(t("edit_meal_btn"))}" aria-label="${escape(t("edit_meal_btn"))}">${iconHtml("edit")}</button>
+          <button type="button" class="icon-btn icon-btn-danger meal-delete-btn" title="${escape(t("delete_meal_btn"))}" aria-label="${escape(t("delete_meal_btn"))}">${iconHtml("delete")}</button>
         </div>
       </td>`;
 
@@ -606,10 +626,10 @@ function startEditMeal(meal) {
 }
 
 async function deleteMeal(meal) {
-  if (!confirm(`Delete "${meal.title || "this meal"}"? This cannot be undone.`)) return;
+  if (!confirm(t("delete_meal_confirm", { title: meal.title || t("delete_meal_this") }))) return;
   const r = await api(`/meals/${meal.id}`, { method: "DELETE" });
   if (!r.ok) {
-    alert("Failed to delete meal.");
+    alert(t("delete_meal_failed"));
     return;
   }
   if (_editingMealId === meal.id) resetMealForm();
@@ -648,12 +668,12 @@ function renderExpandRow(meal) {
         ${photos.map((p, idx) => `
           <div class="photo-thumb" data-photo-id="${p.id}">
             <img src="data:image/jpeg;base64,${p.thumb_data_b64 || ''}" alt="">
-            <button type="button" class="photo-action photo-action-delete" data-action="delete" title="Delete">✕</button>
-            ${idx > 0 ? `<button type="button" class="photo-action photo-action-left" data-action="left" title="Move left">◀</button>` : ''}
-            ${idx < photos.length - 1 ? `<button type="button" class="photo-action photo-action-right" data-action="right" title="Move right">▶</button>` : ''}
+            <button type="button" class="photo-action photo-action-delete" data-action="delete" title="${escape(t("delete"))}">✕</button>
+            ${idx > 0 ? `<button type="button" class="photo-action photo-action-left" data-action="left" title="${escape(t("move_left"))}">◀</button>` : ''}
+            ${idx < photos.length - 1 ? `<button type="button" class="photo-action photo-action-right" data-action="right" title="${escape(t("move_right"))}">▶</button>` : ''}
           </div>
         `).join("")}
-        <button type="button" class="photo-add-btn" data-meal-id="${meal.id}">+ Add</button>
+        <button type="button" class="photo-add-btn" data-meal-id="${meal.id}">${escape(t("add_photo_short"))}</button>
       </div>
     </div>
   `;
@@ -668,7 +688,7 @@ function renderExpandRow(meal) {
     const deleteBtn = div.querySelector('[data-action="delete"]');
     if (deleteBtn) deleteBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!confirm("Delete this photo?")) return;
+      if (!confirm(t("delete_photo_confirm"))) return;
       await deletePhoto(pid, meal);
     });
     const leftBtn = div.querySelector('[data-action="left"]');
@@ -692,7 +712,7 @@ function renderExpandRow(meal) {
 async function deletePhoto(photoId, meal) {
   const r = await api(`/photos/${photoId}`, { method: "DELETE" });
   if (!r.ok) {
-    alert("Failed to delete photo.");
+    alert(t("delete_photo_failed"));
     return;
   }
   _photosByMeal[meal.id] = (_photosByMeal[meal.id] || []).filter(p => p.id !== photoId);
@@ -721,7 +741,7 @@ async function movePhoto(photoId, meal, delta) {
     body: JSON.stringify({ photo_ids: reordered.map(p => p.id) }),
   });
   if (!r.ok) {
-    alert("Failed to reorder.");
+    alert(t("reorder_failed"));
     return;
   }
   _photosByMeal[meal.id] = reordered;
@@ -737,12 +757,12 @@ async function addPhotosToMeal(meal) {
     const existing = (_photosByMeal[meal.id] || []).length;
     const remaining = MAX_PHOTOS - existing;
     if (remaining <= 0) {
-      alert(`This meal already has ${MAX_PHOTOS} photos (the maximum).`);
+      alert(t("max_photos_existing", { n: MAX_PHOTOS }));
       return;
     }
     const files = Array.from(input.files).slice(0, remaining);
     if (input.files.length > remaining) {
-      alert(`Only added ${remaining} photo(s) — limit is ${MAX_PHOTOS} per meal.`);
+      alert(t("max_photos_add", { n: remaining, max: MAX_PHOTOS }));
     }
     for (const file of files) {
       try {
@@ -760,7 +780,7 @@ async function addPhotosToMeal(meal) {
           }),
         });
         if (!r.ok) {
-          alert(`Failed to upload ${file.name}`);
+          alert(t("upload_failed", { name: file.name }));
           continue;
         }
         const newPhoto = await r.json();
@@ -801,58 +821,66 @@ async function openPhotoModal(photoId) {
     const p = await r.json();
     img.src = `data:image/jpeg;base64,${p.image_data_b64}`;
   } catch (e) {
-    img.alt = "Failed to load image";
+    img.alt = t("failed_load_image");
   }
 }
 
 document.getElementById("refresh-meals").onclick = refreshMeals;
 
 // ---- Reports tab ----
-const REPORT_NUTRIENT_SETS = {
-  macros: [
-    { key: "calories", label: "Calories", unit: "kcal", decimals: 0 },
-    { key: "protein", label: "Protein", unit: "g", decimals: 0 },
-    { key: "carbohydrates", label: "Carbs", unit: "g", decimals: 0 },
-    { key: "fat", label: "Fat", unit: "g", decimals: 0 },
-  ],
-  extended: [
-    { key: "calories", label: "Calories", unit: "kcal", decimals: 0 },
-    { key: "protein", label: "Protein", unit: "g", decimals: 0 },
-    { key: "carbohydrates", label: "Carbs", unit: "g", decimals: 0 },
-    { key: "fat", label: "Fat", unit: "g", decimals: 0 },
-    { key: "sodium", label: "Sodium", unit: "mg", decimals: 0 },
-    { key: "sugars", label: "Sugars", unit: "g", decimals: 1 },
-    { key: "fibre", label: "Fibre", unit: "g", decimals: 1 },
-    { key: "saturated_fat", label: "Sat. fat", unit: "g", decimals: 1 },
-    { key: "starch", label: "Starch", unit: "g", decimals: 1 },
-  ],
-  full: [
-    { key: "calories", label: "Calories", unit: "kcal", decimals: 0 },
-    { key: "protein", label: "Protein", unit: "g", decimals: 0 },
-    { key: "carbohydrates", label: "Carbs", unit: "g", decimals: 0 },
-    { key: "fat", label: "Fat", unit: "g", decimals: 0 },
-    { key: "sodium", label: "Sodium", unit: "mg", decimals: 0 },
-    { key: "sugars", label: "Sugars", unit: "g", decimals: 1 },
-    { key: "fibre", label: "Fibre", unit: "g", decimals: 1 },
-    { key: "saturated_fat", label: "Sat. fat", unit: "g", decimals: 1 },
-    { key: "monounsaturated_fat", label: "Mono fat", unit: "g", decimals: 1 },
-    { key: "polyunsaturated_fat", label: "Poly fat", unit: "g", decimals: 1 },
-    { key: "trans_fat", label: "Trans fat", unit: "g", decimals: 1 },
-    { key: "omega3", label: "Omega-3", unit: "g", decimals: 1 },
-    { key: "omega6", label: "Omega-6", unit: "g", decimals: 1 },
-    { key: "animal_protein", label: "Animal protein", unit: "g", decimals: 1 },
-    { key: "plant_protein", label: "Plant protein", unit: "g", decimals: 1 },
-    { key: "alcohol", label: "Alcohol", unit: "g", decimals: 1 },
-    { key: "caffeine", label: "Caffeine", unit: "mg", decimals: 0 },
-    { key: "vitamin_a", label: "Vit A", unit: "mg", decimals: 2 },
-    { key: "vitamin_c", label: "Vit C", unit: "mg", decimals: 0 },
-    { key: "vitamin_d", label: "Vit D", unit: "mg", decimals: 2 },
-    { key: "calcium", label: "Calcium", unit: "mg", decimals: 0 },
-    { key: "iron", label: "Iron", unit: "mg", decimals: 1 },
-    { key: "potassium", label: "Potassium", unit: "mg", decimals: 0 },
-    { key: "magnesium", label: "Magnesium", unit: "mg", decimals: 0 },
-  ],
-};
+function getReportNutrientSets() {
+  const n = (key, unit, decimals) => ({
+    key,
+    label: t(`nutrient_${key}`),
+    unit,
+    decimals,
+  });
+  return {
+    macros: [
+      n("calories", "kcal", 0),
+      n("protein", "g", 0),
+      n("carbohydrates", "g", 0),
+      n("fat", "g", 0),
+    ],
+    extended: [
+      n("calories", "kcal", 0),
+      n("protein", "g", 0),
+      n("carbohydrates", "g", 0),
+      n("fat", "g", 0),
+      n("sodium", "mg", 0),
+      n("sugars", "g", 1),
+      n("fibre", "g", 1),
+      n("saturated_fat", "g", 1),
+      n("starch", "g", 1),
+    ],
+    full: [
+      n("calories", "kcal", 0),
+      n("protein", "g", 0),
+      n("carbohydrates", "g", 0),
+      n("fat", "g", 0),
+      n("sodium", "mg", 0),
+      n("sugars", "g", 1),
+      n("fibre", "g", 1),
+      n("saturated_fat", "g", 1),
+      n("monounsaturated_fat", "g", 1),
+      n("polyunsaturated_fat", "g", 1),
+      n("trans_fat", "g", 1),
+      n("omega3", "g", 1),
+      n("omega6", "g", 1),
+      n("animal_protein", "g", 1),
+      n("plant_protein", "g", 1),
+      n("alcohol", "g", 1),
+      n("caffeine", "mg", 0),
+      n("vitamin_a", "mg", 2),
+      n("vitamin_c", "mg", 0),
+      n("vitamin_d", "mg", 2),
+      n("calcium", "mg", 0),
+      n("iron", "mg", 1),
+      n("potassium", "mg", 0),
+      n("magnesium", "mg", 0),
+    ],
+  };
+}
 
 function isoWeekStart(d) {
   const x = new Date(d);
@@ -870,11 +898,11 @@ function startOfMonth(d) {
 }
 
 function fmtShortDate(d) {
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(I18n.getLocale(), { month: "short", day: "numeric", year: "numeric" });
 }
 
 function fmtMonthLabel(d) {
-  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  return d.toLocaleDateString(I18n.getLocale(), { month: "long", year: "numeric" });
 }
 
 function bucketKeyForMeal(mealDate, period) {
@@ -927,14 +955,14 @@ function buildReportBuckets(period) {
 
 function periodLabel(bucket, period, index) {
   if (period === "week") {
-    return index === 0 ? "This week" : `Week of ${fmtShortDate(bucket.start)}`;
+    return index === 0 ? t("this_week") : t("week_of", { date: fmtShortDate(bucket.start) });
   }
   if (period === "month") {
-    return index === 0 ? "This month" : fmtMonthLabel(bucket.start);
+    return index === 0 ? t("this_month") : fmtMonthLabel(bucket.start);
   }
   if (period === "day") {
     const today = startOfDay(new Date()).getTime();
-    return bucket.start.getTime() === today ? "Today" : fmtShortDate(bucket.start);
+    return bucket.start.getTime() === today ? t("today_label") : fmtShortDate(bucket.start);
   }
   return fmtShortDate(bucket.start);
 }
@@ -966,7 +994,7 @@ function renderNutrientGrid(totals, nutrients) {
 async function renderReports() {
   const el = document.getElementById("reports-content");
   if (!el) return;
-  el.innerHTML = '<p class="muted">Loading…</p>';
+  el.innerHTML = `<p class="muted">${escape(t("loading"))}</p>`;
 
   let meals = _mealsCache;
   if (!meals || meals.length === 0) {
@@ -981,11 +1009,12 @@ async function renderReports() {
 
   const period = document.getElementById("report-period")?.value || "week";
   const nutrientSet = document.getElementById("report-nutrients")?.value || "macros";
-  const nutrients = REPORT_NUTRIENT_SETS[nutrientSet] || REPORT_NUTRIENT_SETS.macros;
+  const nutrientSets = getReportNutrientSets();
+  const nutrients = nutrientSets[nutrientSet] || nutrientSets.macros;
   const buckets = buildReportBuckets(period);
 
   if (buckets.length === 0) {
-    el.innerHTML = '<p class="report-summary-empty">Choose a valid custom date range.</p>';
+    el.innerHTML = `<p class="report-summary-empty">${escape(t("report_empty_range"))}</p>`;
     return;
   }
 
@@ -1003,7 +1032,7 @@ async function renderReports() {
   const maxCal = Math.max(1, ...buckets.map((b) => b.totals.calories || 0));
 
   if (buckets.every((b) => b.count === 0)) {
-    el.innerHTML = '<p class="report-summary-empty">No meals in this period.</p>';
+    el.innerHTML = `<p class="report-summary-empty">${escape(t("report_no_meals"))}</p>`;
     return;
   }
 
@@ -1018,7 +1047,7 @@ async function renderReports() {
           <div class="report-period ${i === 0 ? "current" : ""}">
             <div class="report-period-header">
               <span class="report-period-label">${periodLabel(b, period === "custom" ? "day" : period, i)}</span>
-              <span class="report-period-meta">${b.count} meal${b.count === 1 ? "" : "s"}</span>
+              <span class="report-period-meta">${b.count} ${b.count === 1 ? t("meals_one") : t("meals_many")}</span>
             </div>
             <div class="report-bar"><div class="report-bar-fill" style="width:${pct}%"></div></div>
             <div class="report-period-stats">
@@ -1026,7 +1055,7 @@ async function renderReports() {
                 const v = b.totals[n.key] || 0;
                 return `<span>${n.label} <strong>${v.toFixed(n.decimals)}</strong> ${n.unit}</span>`;
               }).join("")}
-              <span class="muted">${avg.toFixed(0)}/day avg kcal</span>
+              <span class="muted">${avg.toFixed(0)}${t("day_avg_kcal")}</span>
             </div>
             ${renderNutrientGrid(b.totals, nutrients)}
           </div>
@@ -1101,11 +1130,57 @@ async function exportUserDataJson() {
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert(`Export failed: ${e.message || e}`);
+    alert(t("export_failed", { msg: e.message || e }));
   } finally {
     if (btn) btn.disabled = false;
   }
 }
 
+function syncLanguageSelects() {
+  const lang = I18n.getLanguage();
+  for (const id of ["language-select", "language-select-guest"]) {
+    const sel = document.getElementById(id);
+    if (sel) sel.value = lang;
+  }
+}
+
+function populateLanguageSelect(sel) {
+  if (!sel || sel.dataset.populated) return;
+  sel.innerHTML = "";
+  for (const [code, meta] of Object.entries(I18n.SUPPORTED)) {
+    const opt = document.createElement("option");
+    opt.value = code;
+    opt.textContent = meta.label;
+    sel.appendChild(opt);
+  }
+  sel.dataset.populated = "1";
+  sel.addEventListener("change", () => I18n.setLanguage(sel.value));
+}
+
+function initSettings() {
+  populateLanguageSelect(document.getElementById("language-select"));
+  populateLanguageSelect(document.getElementById("language-select-guest"));
+  syncLanguageSelects();
+}
+
+function refreshUIAfterLanguageChange() {
+  I18n.applyLanguage();
+  syncLanguageSelects();
+  setMealFormMode(!!_editingMealId);
+  const activeTab = document.querySelector(".tabs .tab.active")?.dataset.tab;
+  if (activeTab === "history" && tokens.access) refreshMeals();
+  if (activeTab === "reports") renderReports();
+  const settingsBtn = document.getElementById("header-settings-btn");
+  if (settingsBtn) {
+    settingsBtn.title = t("open_settings");
+    settingsBtn.setAttribute("aria-label", t("open_settings"));
+  }
+  const logout = document.getElementById("logout-btn");
+  if (logout) logout.textContent = t("sign_out");
+}
+
+I18n.onLanguageChange(refreshUIAfterLanguageChange);
+I18n.initLanguage();
+initSettings();
 initReportsControls();
 render();

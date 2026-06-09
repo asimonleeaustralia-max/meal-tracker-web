@@ -101,6 +101,40 @@ class LoginSession(Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class LoginAttempt(Base):
+    """Failed local login attempts for brute-force protection."""
+
+    __tablename__ = "login_attempts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True, index=True)
+    failed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
+class PasswordResetToken(Base):
+    """One-time token for resetting a local password."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class ActivityEvent(Base):
     """Traffic and in-app usage events."""
 

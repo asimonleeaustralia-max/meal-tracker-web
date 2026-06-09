@@ -22,7 +22,10 @@ from .admin_access import is_admin_user
 from .activity import client_ip, record_login
 from .config import Settings, get_settings
 from .deps import current_user, current_user_id, get_db
+from .email_send import send_password_reset_email
+from .login_security import check_login_allowed, clear_login_attempts, record_failed_login
 from .models import RefreshToken, User
+from .password_reset import consume_reset_token, count_recent_reset_requests, create_reset_token
 from .passwords import hash_password, validate_password_strength, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -41,6 +44,20 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+RESET_ACK = (
+    "If an account with that email exists, password reset instructions have been sent."
+)
 
 
 async def _issue_pair(
@@ -137,10 +154,20 @@ async def login(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> TokenPair:
+    ip = client_ip(request)
+    await check_login_allowed(
+        db,
+        email=payload.email,
+        ip_address=ip,
+        max_attempts=settings.login_max_attempts,
+        lockout_minutes=settings.login_lockout_minutes,
+    )
+
     user = await db.scalar(select(User).where(User.email == payload.email))
     if user is None or user.password_hash is None or not verify_password(
         payload.password, user.password_hash
     ):
+        await record_failed_login(db, email=payload.email, ip_address=ip)
         # Single generic message so we don't leak which half is wrong
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -148,7 +175,55 @@ async def login(
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User disabled")
+
+    await clear_login_attempts(db, email=payload.email, ip_address=ip)
     return await _issue_pair(user, settings, db, login_method="local", request=request)
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    ip = client_ip(request)
+    await check_login_allowed(
+        db,
+        email=payload.email,
+        ip_address=ip,
+        max_attempts=settings.login_max_attempts * settings.password_reset_max_requests_per_hour,
+        lockout_minutes=60,
+    )
+
+    user = await db.scalar(select(User).where(User.email == payload.email))
+    if user is not None and user.password_hash is not None and user.is_active:
+        recent = await count_recent_reset_requests(db, user_id=user.id)
+        if recent < settings.password_reset_max_requests_per_hour:
+            plain = await create_reset_token(
+                db,
+                user_id=user.id,
+                hours_valid=settings.password_reset_token_hours,
+            )
+            base = settings.password_reset_base_url.rstrip("/")
+            reset_url = f"{base}/?reset_token={plain}"
+            send_password_reset_email(settings, to_email=user.email, reset_url=reset_url)
+
+    return {"message": RESET_ACK}
+
+
+@router.post("/reset-password")
+async def reset_password(
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    if err := validate_password_strength(payload.password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err)
+
+    user = await consume_reset_token(db, token=payload.token)
+    user.password_hash = hash_password(payload.password)
+    await clear_login_attempts(db, email=user.email or "", ip_address=None)
+    return {"message": "Password updated. You can sign in with your new password."}
 
 
 @router.post("/refresh", response_model=TokenPair)

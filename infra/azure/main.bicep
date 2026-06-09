@@ -57,6 +57,9 @@ param runpodEndpointUrl string = ''
 @secure()
 param runpodApiKey string = ''
 
+@description('Public web URL used in password-reset emails')
+param passwordResetBaseUrl string = 'https://macrossimple.com'
+
 
 // ───── Composed names ─────
 var pgServerName     = '${namePrefix}-pg'
@@ -240,6 +243,7 @@ resource authApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'GOOGLE_CLIENT_ID',   value: googleClientId }
             { name: 'APPLE_CLIENT_ID',    value: appleClientId }
             { name: 'FACEBOOK_CLIENT_ID', value: facebookClientId }
+            { name: 'PASSWORD_RESET_BASE_URL', value: passwordResetBaseUrl }
           ],
           empty(googleClientSecret)   ? [] : [{ name: 'GOOGLE_CLIENT_SECRET',   secretRef: 'google-secret' }],
           empty(applePrivateKey)      ? [] : [{ name: 'APPLE_PRIVATE_KEY',     secretRef: 'apple-key' }],

@@ -14,6 +14,7 @@
     "facebookClientId":  { "value": "" },
     "facebookClientSecret":{ "value": "" },
     "runpodEndpointUrl": { "value": "" },
-    "runpodApiKey":      { "value": "" }
+    "runpodApiKey":      { "value": "" },
+    "passwordResetBaseUrl": { "value": "https://macrossimple.com" }
   }
 }

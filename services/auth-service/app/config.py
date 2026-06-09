@@ -37,6 +37,23 @@ class Settings(BaseServiceSettings):
     admin_emails: str = ""  # comma-separated extra admin emails
     admin_user_ids: str = ""  # comma-separated user UUIDs
 
+    # Login brute-force protection
+    login_max_attempts: int = 5
+    login_lockout_minutes: int = 15
+
+    # Password reset
+    password_reset_token_hours: int = 1
+    password_reset_base_url: str = "http://localhost:3000"
+    password_reset_max_requests_per_hour: int = 3
+
+    # SMTP (optional — reset links are logged when unset)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

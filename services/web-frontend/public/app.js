@@ -142,6 +142,15 @@ function applyReportPrefs(prefs) {
   }
 })();
 
+// ---- Password reset link (?reset_token=...) ----
+(function handleResetTokenQuery() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get("reset_token");
+  if (!token) return;
+  sessionStorage.setItem("reset_token", token);
+  history.replaceState(null, "", "/");
+})();
+
 // ---- Fetch wrapper with auto-refresh on 401 ----
 async function api(path, opts = {}) {
   const headers = new Headers(opts.headers || {});
@@ -180,7 +189,10 @@ function render() {
   }
   document.getElementById("auth-section").hidden = authed;
   document.getElementById("app-section").hidden = !authed;
-  if (!authed) showAuthView("login");
+  if (!authed) {
+    const pendingReset = sessionStorage.getItem("reset_token");
+    showAuthView(pendingReset ? "reset-confirm" : "login");
+  }
   const bar = document.getElementById("user-bar");
   bar.textContent = authed ? "" : "";
   if (authed) {
@@ -219,15 +231,45 @@ function render() {
   }
 }
 
-// ---- Login + registration ----
+// ---- Login + registration + password reset ----
+let _loginFailedOnce = false;
+
 function showAuthView(view) {
-  const loginView = document.getElementById("login-view");
-  const registerView = document.getElementById("register-view");
-  if (loginView) loginView.hidden = view !== "login";
-  if (registerView) registerView.hidden = view !== "register";
+  const views = {
+    login: document.getElementById("login-view"),
+    register: document.getElementById("register-view"),
+    "reset-request": document.getElementById("reset-request-view"),
+    "reset-confirm": document.getElementById("reset-confirm-view"),
+  };
+  for (const [name, el] of Object.entries(views)) {
+    if (el) el.hidden = name !== view;
+  }
   document.getElementById("login-error").hidden = true;
   const registerError = document.getElementById("register-error");
   if (registerError) registerError.hidden = true;
+  const resetReqErr = document.getElementById("reset-request-error");
+  const resetReqOk = document.getElementById("reset-request-success");
+  const resetConfErr = document.getElementById("reset-confirm-error");
+  const resetConfOk = document.getElementById("reset-confirm-success");
+  if (resetReqErr) resetReqErr.hidden = true;
+  if (resetReqOk) resetReqOk.hidden = true;
+  if (resetConfErr) resetConfErr.hidden = true;
+  if (resetConfOk) resetConfOk.hidden = true;
+
+  const resetBtn = document.getElementById("reset-password-btn");
+  if (resetBtn) resetBtn.hidden = !_loginFailedOnce;
+
+  if (view === "reset-request") {
+    const loginEmail = document.querySelector('#login-form input[name="email"]')?.value;
+    const resetEmail = document.querySelector('#reset-request-form input[name="email"]');
+    if (loginEmail && resetEmail && !resetEmail.value) resetEmail.value = loginEmail;
+  }
+}
+
+function showAuthSuccess(elementId, msg) {
+  const el = document.getElementById(elementId);
+  el.textContent = msg;
+  el.hidden = false;
 }
 
 function validatePassword(password) {
@@ -256,6 +298,12 @@ function setAuthLoading(busy, formId = "login-form") {
 
 document.getElementById("goto-register-btn").onclick = () => showAuthView("register");
 document.getElementById("goto-login-btn").onclick = () => showAuthView("login");
+document.getElementById("reset-password-btn").onclick = () => showAuthView("reset-request");
+document.getElementById("reset-request-back-btn").onclick = () => showAuthView("login");
+document.getElementById("reset-confirm-back-btn").onclick = () => {
+  sessionStorage.removeItem("reset_token");
+  showAuthView("login");
+};
 
 document.querySelectorAll("#auth-section .oauth-btn").forEach((a) => {
   a.addEventListener("click", () => {
@@ -276,12 +324,78 @@ document.getElementById("login-form").onsubmit = async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!r.ok) return showAuthError("login-error", await niceError(r));
+    if (!r.ok) {
+      _loginFailedOnce = true;
+      const resetBtn = document.getElementById("reset-password-btn");
+      if (resetBtn) resetBtn.hidden = false;
+      return showAuthError("login-error", await niceError(r));
+    }
+    _loginFailedOnce = false;
     const p = await r.json();
     tokens.set(p.access_token, p.refresh_token, p.session_id);
     render();
   } finally {
     setAuthLoading(false, "login-form");
+  }
+};
+
+document.getElementById("reset-request-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("reset-request-error");
+  const okEl = document.getElementById("reset-request-success");
+  errEl.hidden = true;
+  okEl.hidden = true;
+  const fd = new FormData(e.target);
+  const email = String(fd.get("email") || "").trim();
+  setAuthLoading(true, "reset-request-form");
+  try {
+    const r = await fetch(`${API}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!r.ok) return showAuthError("reset-request-error", await niceError(r));
+    const data = await r.json();
+    showAuthSuccess("reset-request-success", data.message || t("reset_password_sent"));
+  } finally {
+    setAuthLoading(false, "reset-request-form");
+  }
+};
+
+document.getElementById("reset-confirm-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("reset-confirm-error");
+  const okEl = document.getElementById("reset-confirm-success");
+  errEl.hidden = true;
+  okEl.hidden = true;
+  const token = sessionStorage.getItem("reset_token");
+  if (!token) {
+    return showAuthError("reset-confirm-error", t("reset_password_invalid_link"));
+  }
+  const fd = new FormData(e.target);
+  const password = String(fd.get("password") || "");
+  const confirm = String(fd.get("password_confirm") || "");
+  if (password !== confirm) {
+    return showAuthError("reset-confirm-error", t("password_mismatch"));
+  }
+  const pwErr = validatePassword(password);
+  if (pwErr) return showAuthError("reset-confirm-error", pwErr);
+
+  setAuthLoading(true, "reset-confirm-form");
+  try {
+    const r = await fetch(`${API}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    });
+    if (!r.ok) return showAuthError("reset-confirm-error", await niceError(r));
+    const data = await r.json();
+    sessionStorage.removeItem("reset_token");
+    showAuthSuccess("reset-confirm-success", data.message || t("reset_password_done"));
+    e.target.reset();
+    setTimeout(() => showAuthView("login"), 2500);
+  } finally {
+    setAuthLoading(false, "reset-confirm-form");
   }
 };
 

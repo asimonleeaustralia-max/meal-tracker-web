@@ -117,6 +117,15 @@ button.ghost {
   color: var(--error);
   font-size: 0.9rem;
 }
+.success {
+  color: #1a7f37;
+  font-size: 0.9rem;
+}
+.reset-intro {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
 .auth-loading[hidden] {
   display: none;
 }
@@ -188,7 +197,9 @@ button.ghost {
   line-height: 1.4;
 }
 #login-form button:disabled,
-#register-form button:disabled {
+#register-form button:disabled,
+#reset-request-form button:disabled,
+#reset-confirm-form button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

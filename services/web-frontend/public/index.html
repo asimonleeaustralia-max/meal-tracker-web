@@ -23,6 +23,7 @@
           <label><span data-i18n="email">Email</span> <input type="email" name="email" required autocomplete="username"></label>
           <label><span data-i18n="password">Password</span> <input type="password" name="password" required autocomplete="current-password"></label>
           <button type="submit" id="login-submit-btn" data-i18n="sign_in">Sign in</button>
+          <button type="button" id="reset-password-btn" class="ghost" data-i18n="reset_password" hidden>Reset password</button>
           <button type="button" id="goto-register-btn" class="ghost" data-i18n="register_new_user">Register new user</button>
         </form>
 
@@ -31,6 +32,39 @@
           <a class="oauth-btn apple"    href="/api/auth/oauth/apple/login" data-i18n="oauth_apple">Continue with Apple</a>
           <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login" data-i18n="oauth_facebook">Continue with Facebook</a>
         </div>
+      </div>
+
+      <div id="reset-request-view" class="card auth-card" hidden>
+        <h2 class="auth-heading" data-i18n="reset_password_title">Reset your password</h2>
+        <p class="muted reset-intro" data-i18n="reset_password_intro">Enter your email address and we will send you a link to choose a new password.</p>
+        <div id="reset-request-error" class="error" hidden></div>
+        <div id="reset-request-success" class="success" hidden></div>
+
+        <form id="reset-request-form">
+          <label><span data-i18n="email">Email</span> <input type="email" name="email" required autocomplete="username"></label>
+          <button type="submit" id="reset-request-submit-btn" data-i18n="send_reset_link">Send reset link</button>
+          <button type="button" id="reset-request-back-btn" class="ghost" data-i18n="back_to_sign_in">Back to sign in</button>
+        </form>
+      </div>
+
+      <div id="reset-confirm-view" class="card auth-card" hidden>
+        <h2 class="auth-heading" data-i18n="reset_password_confirm_title">Choose a new password</h2>
+        <div id="reset-confirm-error" class="error" hidden></div>
+        <div id="reset-confirm-success" class="success" hidden></div>
+
+        <form id="reset-confirm-form">
+          <label>
+            <span data-i18n="password">Password</span>
+            <input type="password" name="password" required autocomplete="new-password" minlength="8">
+          </label>
+          <label>
+            <span data-i18n="confirm_password">Confirm password</span>
+            <input type="password" name="password_confirm" required autocomplete="new-password" minlength="8">
+          </label>
+          <p class="password-hint muted" data-i18n="password_requirements">At least 8 characters with uppercase, lowercase, a number, and a special character.</p>
+          <button type="submit" id="reset-confirm-submit-btn" data-i18n="reset_password_submit">Update password</button>
+          <button type="button" id="reset-confirm-back-btn" class="ghost" data-i18n="back_to_sign_in">Back to sign in</button>
+        </form>
       </div>
 
       <div id="register-view" class="card auth-card" hidden>

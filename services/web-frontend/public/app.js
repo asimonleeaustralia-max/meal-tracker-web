@@ -1511,14 +1511,18 @@ async function exportReportData() {
       ...view.nutrients.map((n) => `${n.label} (${n.unit})`),
       "Avg kcal/day",
     ];
-    const csvRows = rows.map((row) => [
+    const dataRows = rows.map((row) => [
       row.label,
       row.start,
       row.meals,
       ...view.nutrients.map((n) => row.totals[n.key] ?? 0),
       row.avg_kcal_per_day,
     ]);
-    downloadCsv(`macrossimple-report-${date}.csv`, rowsToCsv(headers, csvRows));
+    if (format === "excel") {
+      downloadExcel(`macrossimple-report-${date}.xls`, headers, dataRows);
+      return;
+    }
+    downloadCsv(`macrossimple-report-${date}.csv`, rowsToCsv(headers, dataRows));
   } catch (e) {
     alert(t("export_failed", { msg: e.message || e }));
   } finally {
@@ -1770,6 +1774,48 @@ function rowsToCsv(headers, rows) {
 
 function downloadCsv(filename, csv) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function xmlEscape(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function excelCell(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `<Cell><Data ss:Type="Number">${value}</Data></Cell>`;
+  }
+  return `<Cell><Data ss:Type="String">${xmlEscape(value ?? "")}</Data></Cell>`;
+}
+
+function rowsToSpreadsheetXml(headers, rows, sheetName) {
+  const headerRow = `<Row>${headers.map(excelCell).join("")}</Row>`;
+  const bodyRows = rows.map((row) => `<Row>${row.map(excelCell).join("")}</Row>`).join("");
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="${xmlEscape(sheetName)}">
+  <Table>
+   ${headerRow}
+   ${bodyRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+}
+
+function downloadExcel(filename, headers, rows) {
+  const xml = rowsToSpreadsheetXml(headers, rows, "Report");
+  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

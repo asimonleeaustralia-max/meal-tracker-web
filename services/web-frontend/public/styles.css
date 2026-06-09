@@ -1059,9 +1059,9 @@ svg.icon {
   flex: 1;
   min-width: 0;
 }
-.reports-export button {
+.reports-export .icon-btn {
   flex-shrink: 0;
-  white-space: nowrap;
+  align-self: end;
 }
 .reports-periods { display: flex; flex-direction: column; gap: 14px; }
 .report-period {

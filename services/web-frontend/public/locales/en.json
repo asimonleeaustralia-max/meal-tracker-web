@@ -5,6 +5,7 @@
   "tab_reports": "Reports",
   "tab_settings": "Settings",
   "sign_in": "Sign in",
+  "auth_waiting": "Waiting for your personal macros tracking service to respond.",
   "email": "Email",
   "password": "Password",
   "create_account": "Create account",

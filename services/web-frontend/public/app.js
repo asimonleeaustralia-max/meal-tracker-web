@@ -219,34 +219,69 @@ function render() {
 }
 
 // ---- Login + signup ----
+function setAuthLoading(busy) {
+  const form = document.getElementById("login-form");
+  const loadingEl = document.getElementById("login-loading");
+  const submitBtn = document.getElementById("login-submit-btn");
+  const signupBtn = document.getElementById("signup-btn");
+  form.querySelectorAll("input").forEach((el) => { el.disabled = busy; });
+  if (submitBtn) submitBtn.disabled = busy;
+  if (signupBtn) signupBtn.disabled = busy;
+  document.querySelectorAll("#auth-section .oauth-btn").forEach((a) => {
+    if (busy) a.setAttribute("aria-disabled", "true");
+    else a.removeAttribute("aria-disabled");
+  });
+  if (loadingEl) loadingEl.hidden = !busy;
+  form.setAttribute("aria-busy", busy ? "true" : "false");
+}
+
+document.querySelectorAll("#auth-section .oauth-btn").forEach((a) => {
+  a.addEventListener("click", () => {
+    document.getElementById("login-error").hidden = true;
+    setAuthLoading(true);
+  });
+});
+
 document.getElementById("login-form").onsubmit = async (e) => {
   e.preventDefault();
+  document.getElementById("login-error").hidden = true;
   const fd = new FormData(e.target);
   const body = { email: fd.get("email"), password: fd.get("password") };
-  const r = await fetch(`${API}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) return showError(await niceError(r));
-  const p = await r.json();
-  tokens.set(p.access_token, p.refresh_token, p.session_id);
-  render();
+  setAuthLoading(true);
+  try {
+    const r = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) return showError(await niceError(r));
+    const p = await r.json();
+    tokens.set(p.access_token, p.refresh_token, p.session_id);
+    render();
+  } finally {
+    setAuthLoading(false);
+  }
 };
 
 document.getElementById("signup-btn").onclick = async () => {
   const form = document.getElementById("login-form");
+  document.getElementById("login-error").hidden = true;
   const fd = new FormData(form);
   const body = { email: fd.get("email"), password: fd.get("password") };
-  const r = await fetch(`${API}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) return showError(await niceError(r));
-  const p = await r.json();
-  tokens.set(p.access_token, p.refresh_token, p.session_id);
-  render();
+  setAuthLoading(true);
+  try {
+    const r = await fetch(`${API}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) return showError(await niceError(r));
+    const p = await r.json();
+    tokens.set(p.access_token, p.refresh_token, p.session_id);
+    render();
+  } finally {
+    setAuthLoading(false);
+  }
 };
 
 // ---- Helpers ----

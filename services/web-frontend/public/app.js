@@ -1651,6 +1651,86 @@ function formatDateTime(iso) {
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
 }
 
+let _adminCache = { users: [], sessions: [], activity: [] };
+let _adminExportBound = false;
+
+function csvCell(value) {
+  if (value == null) return "";
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function rowsToCsv(headers, rows) {
+  const lines = [headers.map(csvCell).join(",")];
+  for (const row of rows) lines.push(row.map(csvCell).join(","));
+  return lines.join("\r\n");
+}
+
+function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAdminTable(kind) {
+  const date = new Date().toISOString().slice(0, 10);
+  if (kind === "users") {
+    const headers = ["Email", "Logins", "Last login", "Method", "Session time (s)", "Events", "Meals", "Data saved (bytes)", "Language", "Last IP"];
+    const rows = _adminCache.users.map((u) => [
+      u.email || u.user_id,
+      u.login_count,
+      u.last_login_at || "",
+      u.last_login_method || "",
+      u.total_session_seconds ?? "",
+      u.activity_event_count,
+      u.meal_count,
+      u.data_bytes_saved ?? "",
+      u.preferred_language || "",
+      u.last_ip || "",
+    ]);
+    downloadCsv(`admin-users-${date}.csv`, rowsToCsv(headers, rows));
+  } else if (kind === "sessions") {
+    const headers = ["Time", "Email", "Method", "IP", "Language", "Duration (s)", "Client"];
+    const rows = _adminCache.sessions.map((s) => [
+      s.logged_in_at || "",
+      s.user_email || s.user_id,
+      s.login_method || "",
+      s.ip_address || "",
+      s.language || "",
+      s.duration_seconds ?? "",
+      s.client || "",
+    ]);
+    downloadCsv(`admin-sessions-${date}.csv`, rowsToCsv(headers, rows));
+  } else if (kind === "activity") {
+    const headers = ["Time", "Email", "Event", "Path", "IP", "Language", "Bytes"];
+    const rows = _adminCache.activity.map((e) => [
+      e.created_at || "",
+      e.user_email || e.user_id,
+      e.event_type || "",
+      e.path || "",
+      e.ip_address || "",
+      e.language || "",
+      e.bytes_saved ?? "",
+    ]);
+    downloadCsv(`admin-activity-${date}.csv`, rowsToCsv(headers, rows));
+  }
+}
+
+function initAdminExportButtons() {
+  if (_adminExportBound) return;
+  _adminExportBound = true;
+  document.querySelector(".admin-card")?.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-admin-export]");
+    if (!btn) return;
+    exportAdminTable(btn.dataset.adminExport);
+  });
+}
+
 function updateAdminChrome() {
   const tab = document.getElementById("admin-tab-btn");
   const headerBtn = document.getElementById("header-admin-btn");
@@ -1678,6 +1758,7 @@ async function checkAdminAccess() {
 
 async function renderAdmin() {
   if (!_isAdmin) return;
+  initAdminExportButtons();
   const overviewEl = document.getElementById("admin-overview");
   try {
     const [ovR, usersR, sessR, actR] = await Promise.all([
@@ -1705,6 +1786,7 @@ async function renderAdmin() {
     const users = usersR.ok ? await usersR.json() : [];
     const sessions = sessR.ok ? await sessR.json() : [];
     const activity = actR.ok ? await actR.json() : [];
+    _adminCache = { users, sessions, activity };
 
     const usersBody = document.querySelector("#admin-users-table tbody");
     usersBody.innerHTML = users.map((u) => `

@@ -1278,6 +1278,20 @@ svg.icon {
 .admin-card { overflow-x: auto; }
 .admin-title { margin: 0 0 1rem; font-size: 1.25rem; }
 .admin-subtitle { margin: 1.5rem 0 0.75rem; font-size: 1rem; color: var(--muted, #666); }
+.admin-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.admin-section-header .admin-subtitle { margin: 0; }
+.admin-export-btn {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  padding: 4px 10px;
+}
 .admin-overview {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

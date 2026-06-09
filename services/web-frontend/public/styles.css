@@ -48,11 +48,6 @@ header h1 { margin: 0; font-size: 1.25rem; }
   align-items: center;
   gap: 8px;
 }
-.auth-language {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
 main {
   max-width: 720px;
   margin: 16px auto 32px;
@@ -198,8 +193,19 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
   font-size: 1rem;
   width: 100%;
 }
+.settings-divider {
+  margin: 28px 0 24px;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.settings-export-section {
+  margin-top: 4px;
+}
+.settings-export-section .settings-hint {
+  margin-bottom: 14px;
+}
 .settings-export {
-  margin-top: 20px;
+  margin-top: 0;
 }
 .history-pagination {
   display: flex;

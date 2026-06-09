@@ -60,7 +60,7 @@ async function loadUserAndPrefs() {
     _currentUser = user;
     const prefs = UserPrefs.load(user.id);
     if (prefs.language) {
-      I18n.setLanguage(prefs.language);
+      await I18n.setLanguage(prefs.language);
     } else {
       saveUserPref("language", I18n.getLanguage());
     }
@@ -241,7 +241,7 @@ function switchToTab(name) {
   }
   if (name === "history") refreshMeals();
   if (name === "reports") renderReports();
-  if (name === "settings") syncLanguageSelects();
+  if (name === "settings") initSettings();
 }
 
 function pad2(n) { return String(n).padStart(2, "0"); }
@@ -1335,34 +1335,74 @@ async function exportUserDataJson() {
   }
 }
 
-function syncLanguageSelects() {
-  const lang = I18n.getLanguage();
-  for (const id of ["language-select-guest", "language-select-settings"]) {
-    const sel = document.getElementById(id);
-    if (sel) sel.value = lang;
+let _languageSelectSyncing = false;
+
+function compareLanguageLabels(a, b) {
+  try {
+    return a[1].label.localeCompare(b[1].label, undefined, { sensitivity: "base" });
+  } catch (_) {
+    return a[1].label < b[1].label ? -1 : a[1].label > b[1].label ? 1 : 0;
+  }
+}
+
+async function onLanguageSelectChange(ev) {
+  if (_languageSelectSyncing) return;
+  const sel = ev.target;
+  const code = sel?.value;
+  if (!code) return;
+  await I18n.setLanguage(code);
+  saveUserPref("language", code);
+}
+
+function setSelectLanguageValue(sel, lang) {
+  sel.value = lang;
+  if (sel.value === lang) return;
+  for (const opt of sel.options) {
+    if (opt.value === lang) {
+      opt.selected = true;
+      return;
+    }
   }
 }
 
 function populateLanguageSelect(sel) {
-  if (!sel || sel.dataset.populated) return;
-  sel.innerHTML = "";
-  for (const [code, meta] of Object.entries(I18n.SUPPORTED)) {
-    const opt = document.createElement("option");
-    opt.value = code;
-    opt.textContent = meta.label;
-    sel.appendChild(opt);
+  if (!sel) return;
+  if (!sel.dataset.populated) {
+    sel.addEventListener("change", onLanguageSelectChange);
+    sel.addEventListener("input", onLanguageSelectChange);
+    sel.dataset.populated = "1";
   }
-  sel.dataset.populated = "1";
-  sel.addEventListener("change", () => {
-    I18n.setLanguage(sel.value);
-    if (sel.id === "language-select-settings") saveUserPref("language", sel.value);
-  });
+  const entries = Object.entries(I18n.SUPPORTED).sort(compareLanguageLabels);
+
+  _languageSelectSyncing = true;
+  try {
+    sel.innerHTML = "";
+    for (const [code, meta] of entries) {
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = meta.label;
+      sel.appendChild(opt);
+    }
+    setSelectLanguageValue(sel, I18n.getLanguage());
+  } finally {
+    _languageSelectSyncing = false;
+  }
+}
+
+function syncLanguageSelects() {
+  const lang = I18n.getLanguage();
+  const sel = document.getElementById("language-select-settings");
+  if (!sel) return;
+  _languageSelectSyncing = true;
+  try {
+    setSelectLanguageValue(sel, lang);
+  } finally {
+    _languageSelectSyncing = false;
+  }
 }
 
 function initSettings() {
-  populateLanguageSelect(document.getElementById("language-select-guest"));
   populateLanguageSelect(document.getElementById("language-select-settings"));
-  syncLanguageSelects();
 }
 
 function refreshUIAfterLanguageChange() {
@@ -1382,9 +1422,12 @@ function refreshUIAfterLanguageChange() {
 }
 
 I18n.onLanguageChange(refreshUIAfterLanguageChange);
-I18n.initLanguage();
-initSettings();
-initReportsControls();
-initHistoryPagination();
-if (tokens.access) loadUserAndPrefs();
-render();
+
+(async function bootstrap() {
+  await I18n.initLanguage();
+  initSettings();
+  initReportsControls();
+  initHistoryPagination();
+  if (tokens.access) await loadUserAndPrefs();
+  render();
+})();

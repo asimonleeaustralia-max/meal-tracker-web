@@ -44,3 +44,19 @@ async def current_user_id(payload: TokenPayload = Depends(current_user)) -> uuid
 
 def get_settings_dep() -> Settings:
     return get_settings()
+
+
+async def require_admin_user(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> uuid.UUID:
+    from fastapi import HTTPException, status
+
+    from .config import get_settings
+    from .models import User
+
+    user = await db.get(User, user_id)
+    admin_email = get_settings().admin_email.lower()
+    if user is None or (user.email or "").lower() != admin_email:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user_id

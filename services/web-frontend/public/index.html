@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MacrosSimple</title>
-  <link rel="stylesheet" href="/styles.css?v=37" />
+  <link rel="stylesheet" href="/styles.css?v=42" />
 </head>
 <body>
   <header>
@@ -39,6 +39,7 @@
         <button type="button" class="tab active" data-tab="log" data-i18n="tab_log">Log meal</button>
         <button type="button" class="tab" data-tab="history" data-i18n="tab_history">History</button>
         <button type="button" class="tab" data-tab="reports" data-i18n="tab_reports">Reports</button>
+        <button type="button" class="tab admin-tab" data-tab="admin" id="admin-tab-btn" hidden>Admin</button>
       </nav>
 
       <div id="tab-log" class="tab-pane active">
@@ -370,8 +371,70 @@
         </div>
       </div>
 
+      <div id="tab-admin" class="tab-pane" hidden>
+        <div class="card admin-card">
+          <h2 class="admin-title">Usage &amp; login logs</h2>
+          <div id="admin-overview" class="admin-overview"></div>
+          <h3 class="admin-subtitle">Users</h3>
+          <div class="admin-table-wrap">
+            <table id="admin-users-table" class="admin-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Logins</th>
+                  <th>Last login</th>
+                  <th>Method</th>
+                  <th>Session time</th>
+                  <th>Events</th>
+                  <th>Meals</th>
+                  <th>Data saved</th>
+                  <th>Language</th>
+                  <th>Last IP</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <h3 class="admin-subtitle">Login sessions</h3>
+          <div class="admin-table-wrap">
+            <table id="admin-sessions-table" class="admin-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Email</th>
+                  <th>Method</th>
+                  <th>IP</th>
+                  <th>Language</th>
+                  <th>Duration</th>
+                  <th>Client</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <h3 class="admin-subtitle">Traffic &amp; activity</h3>
+          <div class="admin-table-wrap">
+            <table id="admin-activity-table" class="admin-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Email</th>
+                  <th>Event</th>
+                  <th>Path</th>
+                  <th>IP</th>
+                  <th>Language</th>
+                  <th>Bytes</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div id="tab-settings" class="tab-pane" hidden>
         <div class="card settings-card">
+          <p id="settings-account-email" class="muted settings-hint" hidden></p>
           <p class="muted settings-hint" data-i18n="settings_language_hint">App display language.</p>
           <label class="settings-field settings-field-row">
             <span data-i18n="settings_language">Language</span>
@@ -390,7 +453,7 @@
     </section>
   </main>
 
-  <script src="/i18n.js?v=37"></script>
-  <script src="/app.js?v=37"></script>
+  <script src="/i18n.js?v=42"></script>
+  <script src="/app.js?v=42"></script>
 </body>
 </html>

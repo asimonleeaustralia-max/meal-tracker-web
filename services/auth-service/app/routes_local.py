@@ -4,20 +4,24 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mealtracker_shared.schemas import TokenPair, UserPublic
 from mealtracker_shared.security import (
+    TokenPayload,
     issue_access_token,
     issue_refresh_token,
     verify_token,
 )
 
+from .admin_access import is_admin_user
+
+from .activity import client_ip, record_login
 from .config import Settings, get_settings
-from .deps import current_user_id, get_db
+from .deps import current_user, current_user_id, get_db
 from .models import RefreshToken, User
 from .passwords import hash_password, verify_password
 
@@ -40,8 +44,24 @@ class RefreshRequest(BaseModel):
 
 
 async def _issue_pair(
-    user: User, settings: Settings, db: AsyncSession
+    user: User,
+    settings: Settings,
+    db: AsyncSession,
+    *,
+    login_method: str = "local",
+    request: Request | None = None,
+    language: str | None = None,
+    client: str = "web",
 ) -> TokenPair:
+    session = await record_login(
+        db=db,
+        user_id=user.id,
+        login_method=login_method,
+        ip_address=client_ip(request),
+        user_agent=request.headers.get("user-agent") if request else None,
+        language=language,
+        client=client,
+    )
     access = issue_access_token(
         user_id=user.id,
         email=user.email,
@@ -79,12 +99,14 @@ async def _issue_pair(
         access_token=access,
         refresh_token=refresh,
         expires_in=settings.jwt_access_token_minutes * 60,
+        session_id=session.id,
     )
 
 
 @router.post("/signup", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
 async def signup(
     payload: SignupRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> TokenPair:
@@ -102,12 +124,13 @@ async def signup(
     )
     db.add(user)
     await db.flush()
-    return await _issue_pair(user, settings, db)
+    return await _issue_pair(user, settings, db, login_method="local", request=request)
 
 
 @router.post("/login", response_model=TokenPair)
 async def login(
     payload: LoginRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> TokenPair:
@@ -122,7 +145,7 @@ async def login(
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User disabled")
-    return await _issue_pair(user, settings, db)
+    return await _issue_pair(user, settings, db, login_method="local", request=request)
 
 
 @router.post("/refresh", response_model=TokenPair)
@@ -156,9 +179,17 @@ async def refresh(
 @router.get("/me", response_model=UserPublic)
 async def me(
     db: AsyncSession = Depends(get_db),
-    user_id: uuid.UUID = Depends(current_user_id),
+    payload: TokenPayload = Depends(current_user),
+    settings: Settings = Depends(get_settings),
 ) -> UserPublic:
-    user = await db.get(User, user_id)
+    user = await db.get(User, uuid.UUID(payload.sub))
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return UserPublic.model_validate(user)
+    admin = is_admin_user(
+        user,
+        token_email=payload.email,
+        admin_email=settings.admin_email,
+        admin_emails=settings.admin_emails,
+        admin_user_ids=settings.admin_user_ids,
+    )
+    return UserPublic.model_validate(user).model_copy(update={"is_admin": admin})

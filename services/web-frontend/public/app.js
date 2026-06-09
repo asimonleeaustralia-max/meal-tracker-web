@@ -17,8 +17,52 @@ function iconHtml(name) {
 const tokens = {
   get access()  { return sessionStorage.getItem("at"); },
   get refresh() { return sessionStorage.getItem("rt"); },
-  set(at, rt) { sessionStorage.setItem("at", at); sessionStorage.setItem("rt", rt); },
-  clear() { sessionStorage.removeItem("at"); sessionStorage.removeItem("rt"); },
+  get sessionId() { return sessionStorage.getItem("sid"); },
+  set(at, rt, sid) {
+    sessionStorage.setItem("at", at);
+    sessionStorage.setItem("rt", rt);
+    if (sid) sessionStorage.setItem("sid", sid);
+  },
+  clear() {
+    sessionStorage.removeItem("at");
+    sessionStorage.removeItem("rt");
+    sessionStorage.removeItem("sid");
+  },
+};
+
+let _isAdmin = false;
+let _activityHeartbeat = null;
+
+const Activity = {
+  async track(eventType, extra = {}) {
+    if (!tokens.access) return;
+    try {
+      await api("/auth/activity", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: tokens.sessionId || null,
+          event_type: eventType,
+          path: extra.path ?? null,
+          language: extra.language ?? I18n.getLanguage(),
+          bytes_saved: extra.bytes_saved ?? null,
+          metadata: extra.metadata ?? null,
+        }),
+      });
+    } catch { /* best-effort */ }
+  },
+  trackTab(name) {
+    this.track("tab_switch", { path: name });
+  },
+  startHeartbeat() {
+    this.stopHeartbeat();
+    _activityHeartbeat = setInterval(() => this.track("heartbeat"), 60000);
+  },
+  stopHeartbeat() {
+    if (_activityHeartbeat) {
+      clearInterval(_activityHeartbeat);
+      _activityHeartbeat = null;
+    }
+  },
 };
 
 const HISTORY_PAGE_SIZE = 20;
@@ -56,8 +100,9 @@ async function loadUserAndPrefs() {
     const r = await api("/auth/me");
     if (!r.ok) return null;
     const user = await r.json();
-    if (_currentUser?.id === user.id) return user;
+    const sameUser = _currentUser?.id === user.id;
     _currentUser = user;
+    if (sameUser) return user;
     const prefs = UserPrefs.load(user.id);
     if (prefs.language) {
       await I18n.setLanguage(prefs.language);
@@ -90,8 +135,9 @@ function applyReportPrefs(prefs) {
   const frag = new URLSearchParams(location.hash.slice(1));
   const at = frag.get("access_token");
   const rt = frag.get("refresh_token");
+  const sid = frag.get("session_id");
   if (at && rt) {
-    tokens.set(at, rt);
+    tokens.set(at, rt, sid);
     history.replaceState(null, "", "/");
   }
 })();
@@ -126,6 +172,12 @@ async function api(path, opts = {}) {
 // ---- UI rendering ----
 function render() {
   const authed = !!tokens.access;
+  if (!authed) {
+    Activity.stopHeartbeat();
+    _isAdmin = false;
+    const adminTab = document.getElementById("admin-tab-btn");
+    if (adminTab) adminTab.hidden = true;
+  }
   document.getElementById("auth-section").hidden = authed;
   document.getElementById("app-section").hidden = !authed;
   const bar = document.getElementById("user-bar");
@@ -133,13 +185,31 @@ function render() {
   if (authed) {
     bar.innerHTML = `
       <div class="user-bar-actions">
+        <button type="button" id="header-admin-btn" class="ghost admin-header-btn" hidden>Admin</button>
         <button type="button" id="header-settings-btn" class="icon-btn" title="${escape(t("open_settings"))}" aria-label="${escape(t("open_settings"))}">${iconHtml("settings")}</button>
         <button type="button" id="logout-btn" class="ghost" data-i18n="sign_out">Sign out</button>
       </div>`;
     I18n.applyStaticTranslations(bar);
     document.getElementById("header-settings-btn").onclick = () => switchToTab("settings");
-    document.getElementById("logout-btn").onclick = () => { _currentUser = null; tokens.clear(); render(); };
-    loadUserAndPrefs();
+    document.getElementById("header-admin-btn").onclick = () => {
+      const adminTab = document.querySelector('.tabs .tab[data-tab="admin"]');
+      if (adminTab) adminTab.click();
+      else switchToTab("admin");
+    };
+    document.getElementById("logout-btn").onclick = async () => {
+      await Activity.track("logout");
+      Activity.stopHeartbeat();
+      _currentUser = null;
+      _isAdmin = false;
+      tokens.clear();
+      render();
+    };
+    void (async () => {
+      await loadUserAndPrefs();
+      await checkAdminAccess();
+      Activity.track("page_view", { path: "app" });
+      if (!_activityHeartbeat) Activity.startHeartbeat();
+    })();
     refreshMeals();
     MealDateTime.init();
     MealDateTime.setNow();
@@ -160,7 +230,7 @@ document.getElementById("login-form").onsubmit = async (e) => {
   });
   if (!r.ok) return showError(await niceError(r));
   const p = await r.json();
-  tokens.set(p.access_token, p.refresh_token);
+  tokens.set(p.access_token, p.refresh_token, p.session_id);
   render();
 };
 
@@ -175,7 +245,7 @@ document.getElementById("signup-btn").onclick = async () => {
   });
   if (!r.ok) return showError(await niceError(r));
   const p = await r.json();
-  tokens.set(p.access_token, p.refresh_token);
+  tokens.set(p.access_token, p.refresh_token, p.session_id);
   render();
 };
 
@@ -230,9 +300,10 @@ function setMealFormMode(editing) {
 function switchToTab(name) {
   const tabs = document.querySelectorAll(".tabs .tab");
   const panes = document.querySelectorAll(".tab-pane");
-  const isSettings = name === "settings";
+  const isOverlay = name === "settings";
   for (const tab of tabs) {
-    tab.classList.toggle("active", !isSettings && tab.dataset.tab === name);
+    const isAdmin = name === "admin" && tab.dataset.tab === "admin";
+    tab.classList.toggle("active", !isOverlay && (tab.dataset.tab === name || isAdmin));
   }
   for (const p of panes) {
     const isThis = p.id === "tab-" + name;
@@ -242,6 +313,8 @@ function switchToTab(name) {
   if (name === "history") refreshMeals();
   if (name === "reports") renderReports();
   if (name === "settings") initSettings();
+  if (name === "admin") renderAdmin();
+  if (name !== "settings") Activity.trackTab(name);
 }
 
 function pad2(n) { return String(n).padStart(2, "0"); }
@@ -529,6 +602,10 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
       ? t("meal_saved_photos_failed", { n: photoErrors })
       : t("meal_saved");
   showMealToast(msg, "success");
+  if (!isEdit) {
+    const bytes = JSON.stringify(savedMeal).length + pendingPhotos.reduce((n, p) => n + (p.byte_size || 0), 0);
+    Activity.track("meal_saved", { path: savedMeal.id, bytes_saved: bytes });
+  }
   resetMealForm();
   refreshMeals();
 };
@@ -670,6 +747,8 @@ function initTabs() {
       }
       if (name === "history") refreshMeals();
       if (name === "reports") renderReports();
+      if (name === "admin") renderAdmin();
+      Activity.trackTab(name);
     });
   }
 }
@@ -1352,6 +1431,7 @@ async function onLanguageSelectChange(ev) {
   if (!code) return;
   await I18n.setLanguage(code);
   saveUserPref("language", code);
+  Activity.track("language_change", { language: code, path: "settings" });
 }
 
 function setSelectLanguageValue(sel, lang) {
@@ -1403,6 +1483,15 @@ function syncLanguageSelects() {
 
 function initSettings() {
   populateLanguageSelect(document.getElementById("language-select-settings"));
+  const acct = document.getElementById("settings-account-email");
+  if (acct) {
+    if (_currentUser?.email) {
+      acct.textContent = `Signed in as ${_currentUser.email}`;
+      acct.hidden = false;
+    } else {
+      acct.hidden = true;
+    }
+  }
 }
 
 function refreshUIAfterLanguageChange() {
@@ -1423,11 +1512,137 @@ function refreshUIAfterLanguageChange() {
 
 I18n.onLanguageChange(refreshUIAfterLanguageChange);
 
+function formatBytes(n) {
+  if (n == null || n === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let v = Number(n);
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+
+function formatDuration(sec) {
+  if (sec == null) return "—";
+  const s = Number(sec);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m < 60) return `${m}m ${r}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+function formatDateTime(iso) {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+function updateAdminChrome() {
+  const tab = document.getElementById("admin-tab-btn");
+  const headerBtn = document.getElementById("header-admin-btn");
+  if (tab) tab.hidden = !_isAdmin;
+  if (headerBtn) headerBtn.hidden = !_isAdmin;
+}
+
+async function checkAdminAccess() {
+  if (!tokens.access) {
+    _isAdmin = false;
+    updateAdminChrome();
+    return;
+  }
+  _isAdmin = !!_currentUser?.is_admin;
+  if (!_isAdmin) {
+    try {
+      const r = await api("/auth/admin/check");
+      _isAdmin = r.ok;
+    } catch {
+      _isAdmin = false;
+    }
+  }
+  updateAdminChrome();
+}
+
+async function renderAdmin() {
+  if (!_isAdmin) return;
+  const overviewEl = document.getElementById("admin-overview");
+  try {
+    const [ovR, usersR, sessR, actR] = await Promise.all([
+      api("/auth/admin/overview"),
+      api("/auth/admin/users"),
+      api("/auth/admin/sessions?limit=50"),
+      api("/auth/admin/activity?limit=50"),
+    ]);
+    if (!ovR.ok) throw new Error(await niceError(ovR));
+    const ov = await ovR.json();
+    overviewEl.innerHTML = [
+      ["Users", ov.total_users],
+      ["Total logins", ov.total_logins],
+      ["Activity events", ov.total_activity_events],
+      ["Active sessions", ov.active_sessions],
+      ["Logins (24h)", ov.logins_24h],
+      ["Events (24h)", ov.events_24h],
+      ["Unique IPs (24h)", ov.unique_ips_24h],
+    ].map(([label, val]) => `
+      <div class="admin-stat">
+        <div class="admin-stat-value">${escape(String(val))}</div>
+        <div class="admin-stat-label">${escape(label)}</div>
+      </div>`).join("");
+
+    const users = usersR.ok ? await usersR.json() : [];
+    const sessions = sessR.ok ? await sessR.json() : [];
+    const activity = actR.ok ? await actR.json() : [];
+
+    const usersBody = document.querySelector("#admin-users-table tbody");
+    usersBody.innerHTML = users.map((u) => `
+      <tr>
+        <td>${escape(u.email || u.user_id)}</td>
+        <td>${u.login_count}</td>
+        <td>${escape(formatDateTime(u.last_login_at))}</td>
+        <td>${escape(u.last_login_method || "—")}</td>
+        <td>${formatDuration(u.total_session_seconds)}</td>
+        <td>${u.activity_event_count}</td>
+        <td>${u.meal_count}</td>
+        <td>${formatBytes(u.data_bytes_saved)}</td>
+        <td>${escape(u.preferred_language || "—")}</td>
+        <td>${escape(u.last_ip || "—")}</td>
+      </tr>`).join("");
+
+    const sessBody = document.querySelector("#admin-sessions-table tbody");
+    sessBody.innerHTML = sessions.map((s) => `
+      <tr>
+        <td>${escape(formatDateTime(s.logged_in_at))}</td>
+        <td>${escape(s.user_email || s.user_id)}</td>
+        <td>${escape(s.login_method)}</td>
+        <td>${escape(s.ip_address || "—")}</td>
+        <td>${escape(s.language || "—")}</td>
+        <td>${formatDuration(s.duration_seconds)}</td>
+        <td>${escape(s.client)}</td>
+      </tr>`).join("");
+
+    const actBody = document.querySelector("#admin-activity-table tbody");
+    actBody.innerHTML = activity.map((e) => `
+      <tr>
+        <td>${escape(formatDateTime(e.created_at))}</td>
+        <td>${escape(e.user_email || e.user_id)}</td>
+        <td>${escape(e.event_type)}</td>
+        <td>${escape(e.path || "—")}</td>
+        <td>${escape(e.ip_address || "—")}</td>
+        <td>${escape(e.language || "—")}</td>
+        <td>${e.bytes_saved != null ? formatBytes(e.bytes_saved) : "—"}</td>
+      </tr>`).join("");
+  } catch (e) {
+    overviewEl.innerHTML = `<p class="error">${escape(e.message || String(e))}</p>`;
+  }
+}
+
 (async function bootstrap() {
   await I18n.initLanguage();
   initSettings();
   initReportsControls();
   initHistoryPagination();
-  if (tokens.access) await loadUserAndPrefs();
+  if (tokens.access) {
+    await loadUserAndPrefs();
+    await checkAdminAccess();
+    Activity.startHeartbeat();
+  }
   render();
 })();

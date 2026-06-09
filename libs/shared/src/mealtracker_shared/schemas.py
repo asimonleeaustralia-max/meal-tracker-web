@@ -22,6 +22,7 @@ class UserPublic(BaseModel):
     email: EmailStr | None = None
     display_name: str | None = None
     provider: str = "local"  # local | google | apple | facebook
+    is_admin: bool = False
     created_at: datetime
 
 
@@ -30,6 +31,75 @@ class TokenPair(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # seconds until access_token expires
+    session_id: uuid.UUID | None = None
+
+
+class ActivityEventIn(BaseModel):
+    session_id: uuid.UUID | None = None
+    event_type: str
+    path: str | None = None
+    language: str | None = None
+    bytes_saved: int | None = None
+    metadata: dict | None = None
+
+
+class LoginSessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    user_email: str | None = None
+    login_method: str
+    ip_address: str | None = None
+    user_agent: str | None = None
+    language: str | None = None
+    client: str
+    logged_in_at: datetime
+    logged_out_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    duration_seconds: int | None = None
+
+
+class ActivityEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    user_email: str | None = None
+    session_id: uuid.UUID | None = None
+    event_type: str
+    path: str | None = None
+    ip_address: str | None = None
+    language: str | None = None
+    bytes_saved: int | None = None
+    metadata_json: dict | None = None
+    created_at: datetime
+
+
+class AdminUserStats(BaseModel):
+    user_id: uuid.UUID
+    email: str | None = None
+    display_name: str | None = None
+    login_count: int = 0
+    last_login_at: datetime | None = None
+    last_login_method: str | None = None
+    total_session_seconds: int = 0
+    activity_event_count: int = 0
+    meal_count: int = 0
+    photo_count: int = 0
+    data_bytes_saved: int = 0
+    preferred_language: str | None = None
+    last_ip: str | None = None
+
+
+class AdminOverview(BaseModel):
+    total_users: int
+    total_logins: int
+    total_activity_events: int
+    active_sessions: int
+    unique_ips_24h: int
+    logins_24h: int
+    events_24h: int
 
 
 # -------------------- Meal (mirrors iOS Core Data `Meal`) --------------------

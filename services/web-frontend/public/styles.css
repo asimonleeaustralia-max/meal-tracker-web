@@ -1196,3 +1196,39 @@ svg.icon {
     display: none;
   }
 }
+
+/* Admin dashboard */
+.admin-card { overflow-x: auto; }
+.admin-title { margin: 0 0 1rem; font-size: 1.25rem; }
+.admin-subtitle { margin: 1.5rem 0 0.75rem; font-size: 1rem; color: var(--muted, #666); }
+.admin-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.admin-stat {
+  background: var(--surface-2, #f5f5f5);
+  border-radius: 8px;
+  padding: 12px;
+}
+.admin-stat-value { font-size: 1.5rem; font-weight: 600; }
+.admin-stat-label { font-size: 0.8rem; color: var(--muted, #666); margin-top: 4px; }
+.admin-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.admin-table th,
+.admin-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+  white-space: nowrap;
+}
+.admin-table th { font-weight: 600; background: var(--surface-2, #f5f5f5); }
+.tabs .tab.admin-tab { color: var(--accent, #2563eb); }
+.admin-header-btn {
+  font-weight: 600;
+  color: var(--accent, #2563eb);
+}

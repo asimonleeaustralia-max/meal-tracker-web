@@ -11,6 +11,8 @@ from mealtracker_shared.logging import configure_logging
 
 from .config import get_settings
 from .deps import init_db
+from .routes_activity import router as activity_router
+from .routes_admin import router as admin_router
 from .routes_local import router as local_router
 from .routes_oauth import _configure_clients, router as oauth_router
 
@@ -27,11 +29,10 @@ async def lifespan(app: FastAPI):
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
     )
-    # In dev we auto-create tables. In prod, use alembic migrations only.
-    if settings.environment == "development":
-        async with db.engine.begin() as conn:
-            await conn.exec_driver_sql(f'CREATE SCHEMA IF NOT EXISTS "{settings.db_schema}"')
-            await conn.run_sync(Base.metadata.create_all)
+    # Ensure schema and tables exist (create_all is idempotent; alembic for alters).
+    async with db.engine.begin() as conn:
+        await conn.exec_driver_sql(f'CREATE SCHEMA IF NOT EXISTS "{settings.db_schema}"')
+        await conn.run_sync(Base.metadata.create_all)
 
     init_db(db)
     _configure_clients(settings)
@@ -52,6 +53,8 @@ def create_app() -> FastAPI:
 
     app.include_router(local_router)
     app.include_router(oauth_router)
+    app.include_router(activity_router)
+    app.include_router(admin_router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:

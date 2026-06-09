@@ -32,6 +32,11 @@ class Settings(BaseServiceSettings):
     # Session secret for the short-lived OAuth state cookie
     session_secret: str = "dev-only-session-secret-change-me"
 
+    # Admin dashboard access
+    admin_email: str = "asimonlee@gmail.com"
+    admin_emails: str = ""  # comma-separated extra admin emails
+    admin_user_ids: str = ""  # comma-separated user UUIDs
+
 
 @lru_cache
 def get_settings() -> Settings:

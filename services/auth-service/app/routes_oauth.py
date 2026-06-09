@@ -204,14 +204,18 @@ async def oauth_callback(
         email=email,
         display_name=display_name,
     )
-    pair = await _issue_pair(user, settings, db)
+    pair = await _issue_pair(
+        user, settings, db, login_method=provider, request=request
+    )
     # Hand tokens to the SPA via URL fragment (so they don't hit server logs)
-    return RedirectResponse(
-        f"{settings.oauth_success_redirect}"
+    frag = (
         f"#access_token={pair.access_token}"
         f"&refresh_token={pair.refresh_token}"
         f"&expires_in={pair.expires_in}"
     )
+    if pair.session_id is not None:
+        frag += f"&session_id={pair.session_id}"
+    return RedirectResponse(f"{settings.oauth_success_redirect}{frag}")
 
 
 # ----------------------------- Native iOS token exchange -----------------------------
@@ -231,6 +235,7 @@ class TokenExchangeRequest(BaseModel):
 async def oauth_token_exchange(
     provider: str,
     payload: TokenExchangeRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> TokenPair:
@@ -254,4 +259,6 @@ async def oauth_token_exchange(
         email=email,
         display_name=display_name,
     )
-    return await _issue_pair(user, settings, db)
+    return await _issue_pair(
+        user, settings, db, login_method=provider, request=request, client="ios"
+    )

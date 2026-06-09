@@ -1,6 +1,6 @@
 // MacrosSimple web frontend. All API calls go through the gateway.
 
-const API = "https://mealtracker476a-gateway.kindgrass-8e900679.australiaeast.azurecontainerapps.io/api";
+const API = "/api";
 const t = (key, params) => I18n.t(key, params);
 
 /** Inline SVG icons — class "icon" picks up sizing from CSS. */
@@ -77,9 +77,11 @@ function render() {
     document.getElementById("header-settings-btn").onclick = () => switchToTab("settings");
     document.getElementById("logout-btn").onclick = () => { tokens.clear(); render(); };
     refreshMeals();
-    setDefaultMealDate();
+    MealDateTime.init();
+    MealDateTime.setNow();
     initGuessToggles();
     initNutrientValidation();
+    initFieldHints();
   }
 }
 
@@ -143,13 +145,16 @@ function showMealToast(message, type = "success") {
 }
 
 function setMealFormMode(editing) {
-  const title = document.getElementById("meal-form-title");
+  const badge = document.getElementById("meal-form-badge");
   const saveBtn = document.getElementById("save-meal-btn");
-  const titleKey = editing ? "edit_meal" : "add_meal";
   const saveKey = editing ? "save_changes" : "save_meal";
-  if (title) {
-    title.dataset.i18n = titleKey;
-    title.textContent = t(titleKey);
+  if (badge) {
+    if (editing) {
+      badge.textContent = t("edit_meal");
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
   }
   if (saveBtn) {
     saveBtn.dataset.i18nTitle = saveKey;
@@ -175,18 +180,72 @@ function switchToTab(name) {
   if (name === "settings") syncLanguageSelects();
 }
 
-function mealDateToLocalInput(iso) {
-  const d = new Date(iso);
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d - tz).toISOString().slice(0, 16);
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function dateToInputValue(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
+
+function timeToInputValue(d) {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function parseMealDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const d = new Date(`${dateStr}T${timeStr}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const MealDateTime = (() => {
+  let wired = false;
+
+  function syncHidden() {
+    const form = document.getElementById("add-meal-form");
+    const hidden = form?.querySelector('input[name="date"]');
+    const dateEl = document.getElementById("meal-date-input");
+    const timeEl = document.getElementById("meal-time-input");
+    if (!hidden || !dateEl || !timeEl) return;
+    const d = parseMealDateTime(dateEl.value, timeEl.value);
+    hidden.value = d ? d.toISOString() : "";
+  }
+
+  function setFromDate(d) {
+    const dateEl = document.getElementById("meal-date-input");
+    const timeEl = document.getElementById("meal-time-input");
+    if (!dateEl || !timeEl) return;
+    dateEl.value = dateToInputValue(d);
+    timeEl.value = timeToInputValue(d);
+    syncHidden();
+  }
+
+  function setNow() {
+    setFromDate(new Date());
+  }
+
+  function init() {
+    if (wired) return;
+    const dateEl = document.getElementById("meal-date-input");
+    const timeEl = document.getElementById("meal-time-input");
+    const nowBtn = document.getElementById("meal-datetime-now");
+    if (!dateEl || !timeEl) return;
+    wired = true;
+    for (const el of [dateEl, timeEl]) {
+      el.addEventListener("change", syncHidden);
+      el.addEventListener("input", syncHidden);
+    }
+    nowBtn?.addEventListener("click", setNow);
+  }
+
+  return { init, setNow, setFromDate, syncHidden };
+})();
 
 function populateMealForm(meal) {
   const form = document.getElementById("add-meal-form");
   if (!form) return;
   form.reset();
   form.querySelector('[name="title"]').value = meal.title || "";
-  form.querySelector('[name="date"]').value = mealDateToLocalInput(meal.date);
+  if (meal.date) MealDateTime.setFromDate(new Date(meal.date));
+  else MealDateTime.setNow();
   for (const el of form.elements) {
     if (!el.name) continue;
     if (el.type === "number" && meal[el.name] != null) {
@@ -206,6 +265,7 @@ function populateMealForm(meal) {
 }
 
 function buildMealPayload(form) {
+  MealDateTime.syncHidden();
   const fd = new FormData(form);
   const payload = {
     title: fd.get("title"),
@@ -215,7 +275,11 @@ function buildMealPayload(form) {
     if (!el.name) continue;
     if (el.type === "number") {
       const v = Number(el.value);
-      if (!Number.isNaN(v) && v !== 0) payload[el.name] = v;
+      if (el.name === "calories") {
+        if (!Number.isNaN(v) && v > 0) payload.calories = v;
+      } else if (!Number.isNaN(v) && v !== 0) {
+        payload[el.name] = v;
+      }
     } else if (el.type === "checkbox" && el.name.endsWith("_is_guess")) {
       payload[el.name] = el.checked;
     }
@@ -233,7 +297,7 @@ function resetMealForm() {
   }
   pendingPhotos = [];
   renderPhotoStrip();
-  setDefaultMealDate();
+  MealDateTime.setNow();
   initGuessToggles();
 }
 
@@ -331,13 +395,39 @@ function initPhotoFlow() {
 initPhotoFlow();
 
 // ---- Add meal form ----
-function setDefaultMealDate() {
-  const now = new Date();
-  const tz = now.getTimezoneOffset() * 60000;
-  const local = new Date(now - tz).toISOString().slice(0, 16);
-  const el = document.querySelector('#add-meal-form input[name="date"]');
-  if (el && !el.value) el.value = local;
+function validateCalories(form) {
+  const inp = form.querySelector('[name="calories"]');
+  if (!inp) return true;
+  const v = Number(inp.value);
+  const ok = inp.value !== "" && !Number.isNaN(v) && v > 0;
+  inp.classList.toggle("err", !ok);
+  return ok;
 }
+
+function initFieldHints() {
+  document.querySelectorAll(".guess-toggle").forEach((toggle) => {
+    if (toggle.dataset.hintWired) return;
+    toggle.dataset.hintWired = "1";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "hint-btn hint-btn-inline";
+    btn.dataset.tooltipKey = "tooltip_guess";
+    btn.textContent = "?";
+    btn.addEventListener("click", (e) => e.stopPropagation());
+    toggle.insertBefore(btn, toggle.querySelector(".guess-state"));
+    btn.title = t("tooltip_guess");
+    btn.setAttribute("aria-label", t("tooltip_guess"));
+  });
+  document.querySelectorAll("[data-tooltip-key]").forEach((el) => {
+    const key = el.dataset.tooltipKey;
+    if (key) {
+      el.title = t(key);
+      el.setAttribute("aria-label", t(key));
+    }
+  });
+}
+
+MealDateTime.init();
 
 document.getElementById("add-meal-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -345,7 +435,22 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
   if (toast) toast.hidden = true;
 
   const form = e.target;
+  MealDateTime.syncHidden();
+  if (!validateCalories(form)) {
+    showMealToast(t("calories_required"), "error");
+    form.querySelector('[name="calories"]')?.focus();
+    return;
+  }
+  const hiddenDate = form.querySelector('input[name="date"]');
+  if (!hiddenDate?.value) {
+    showMealToast(t("tooltip_date"), "error");
+    return;
+  }
   const payload = buildMealPayload(form);
+  if (!payload.calories) {
+    showMealToast(t("calories_required"), "error");
+    return;
+  }
   const isEdit = !!_editingMealId;
 
   const r = isEdit
@@ -389,18 +494,18 @@ document.getElementById("add-meal-form").onsubmit = async (e) => {
 
 // ---- Guess/accurate toggle wiring ----
 function initGuessToggles() {
-  for (const t of document.querySelectorAll(".guess-toggle")) {
-    const cb = t.querySelector('input[type="checkbox"]');
-    const state = t.querySelector(".guess-state");
+  for (const toggle of document.querySelectorAll(".guess-toggle")) {
+    const cb = toggle.querySelector('input[type="checkbox"]');
+    const state = toggle.querySelector(".guess-state");
     if (!cb || !state) continue;
     const update = () => {
-      t.classList.toggle("is-guess", cb.checked);
+      toggle.classList.toggle("is-guess", cb.checked);
       state.textContent = cb.checked ? t("guess") : t("accurate");
     };
     update();
-    if (!t.dataset.wired) {
-      t.dataset.wired = "1";
-      t.addEventListener("click", (e) => {
+    if (!toggle.dataset.wired) {
+      toggle.dataset.wired = "1";
+      toggle.addEventListener("click", (e) => {
         if (e.target !== cb) cb.checked = !cb.checked;
         update();
       });
@@ -484,7 +589,10 @@ function initNutrientValidation() {
   for (const inp of document.querySelectorAll('#add-meal-form input[type="number"]')) {
     if (inp.dataset.validated) continue;
     inp.dataset.validated = "1";
-    inp.addEventListener("input", () => checkNutrient(inp));
+    inp.addEventListener("input", () => {
+      checkNutrient(inp);
+      if (inp.name === "calories") validateCalories(inp.closest("form"));
+    });
     checkNutrient(inp);
   }
 }
@@ -492,7 +600,12 @@ function initNutrientValidation() {
 // Prevent input clicks inside macro <summary> from collapsing the details
 for (const s of document.querySelectorAll("details.macro-group > summary")) {
   s.addEventListener("click", (e) => {
-    if (e.target.tagName === "INPUT" || e.target.closest(".guess-toggle") || e.target.classList.contains("field-label")) {
+    if (
+      e.target.tagName === "INPUT" ||
+      e.target.closest(".guess-toggle") ||
+      e.target.closest(".hint-btn") ||
+      e.target.classList.contains("field-label")
+    ) {
       e.preventDefault();
       if (e.target.classList.contains("field-label")) {
         const inp = s.querySelector('input[type="number"]');
@@ -1166,6 +1279,7 @@ function initSettings() {
 function refreshUIAfterLanguageChange() {
   I18n.applyLanguage();
   syncLanguageSelects();
+  initFieldHints();
   setMealFormMode(!!_editingMealId);
   const activeTab = document.querySelector(".tabs .tab.active")?.dataset.tab;
   if (activeTab === "history" && tokens.access) refreshMeals();
@@ -1183,4 +1297,5 @@ I18n.onLanguageChange(refreshUIAfterLanguageChange);
 I18n.initLanguage();
 initSettings();
 initReportsControls();
+initFieldHints();
 render();

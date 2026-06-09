@@ -367,6 +367,15 @@
                 <option value="full" data-i18n-key="nutrients_full">Full detail (vitamins, minerals, stimulants)</option>
               </select>
             </label>
+            <div class="reports-export">
+              <label><span data-i18n="export_format">Format</span>
+                <select id="report-export-format">
+                  <option value="csv" selected>CSV</option>
+                  <option value="json">JSON</option>
+                </select>
+              </label>
+              <button type="button" id="report-export-btn" class="ghost" data-i18n="export_report">Export</button>
+            </div>
           </div>
           <div id="reports-content"></div>
         </div>

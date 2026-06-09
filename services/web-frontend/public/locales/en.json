@@ -84,6 +84,8 @@
   "load_data_failed": "Couldn't load your data. Please try again.",
   "report_empty_range": "Choose a valid custom date range.",
   "report_no_meals": "No meals in this period.",
+  "export_format": "Format",
+  "export_report": "Export",
   "this_week": "This week",
   "week_of": "Week of {date}",
   "this_month": "This month",

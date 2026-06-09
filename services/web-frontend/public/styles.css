@@ -1043,6 +1043,20 @@ svg.icon {
   width: 100%;
   min-width: 0;
 }
+.reports-export {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+.reports-export label {
+  flex: 1;
+  min-width: 0;
+}
+.reports-export button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .reports-periods { display: flex; flex-direction: column; gap: 14px; }
 .report-period {
   padding: 12px;

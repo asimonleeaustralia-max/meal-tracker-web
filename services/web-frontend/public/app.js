@@ -1339,6 +1339,60 @@ function renderNutrientGrid(totals, nutrients) {
   `;
 }
 
+function getReportFilterState() {
+  const period = document.getElementById("report-period")?.value || "week";
+  const nutrientSet = document.getElementById("report-nutrients")?.value || "macros";
+  const nutrientSets = getReportNutrientSets();
+  const nutrients = nutrientSets[nutrientSet] || nutrientSets.macros;
+  return { period, nutrientSet, nutrients };
+}
+
+function buildReportView(meals) {
+  const { period, nutrientSet, nutrients } = getReportFilterState();
+  const buckets = buildReportBuckets(period);
+  if (buckets.length === 0) {
+    return { period, nutrientSet, nutrients, buckets: [], effectivePeriod: period === "custom" ? "day" : period };
+  }
+
+  const effectivePeriod = period === "custom" ? "day" : period;
+  const bucketMap = new Map(buckets.map((b) => [b.key, b]));
+  for (const m of meals) {
+    const key = bucketKeyForMeal(m.date, effectivePeriod);
+    const bucket = bucketMap.get(key);
+    if (!bucket) continue;
+    bucket.count += 1;
+    for (const n of nutrients) {
+      bucket.totals[n.key] = (bucket.totals[n.key] || 0) + (Number(m[n.key]) || 0);
+    }
+  }
+  return { period, nutrientSet, nutrients, buckets, effectivePeriod };
+}
+
+function reportPeriodRows(view) {
+  const { period, nutrients, buckets, effectivePeriod } = view;
+  return buckets.map((b, i) => {
+    const cal = b.totals.calories || 0;
+    const avg = avgPerDay(cal, effectivePeriod, b);
+    return {
+      label: periodLabel(b, effectivePeriod, i),
+      start: b.start.toISOString().slice(0, 10),
+      meals: b.count,
+      totals: Object.fromEntries(
+        nutrients.map((n) => [n.key, Number((b.totals[n.key] || 0).toFixed(n.decimals))])
+      ),
+      avg_kcal_per_day: Number(avg.toFixed(0)),
+    };
+  });
+}
+
+async function ensureReportMeals() {
+  if (_mealsCache && _mealsCache.length > 0) return _mealsCache;
+  const r = await api("/meals?limit=500");
+  if (!r.ok) throw new Error(t("load_data_failed"));
+  _mealsCache = await r.json();
+  return _mealsCache;
+}
+
 async function renderReports() {
   const el = document.getElementById("reports-content");
   if (!el) return;
@@ -1347,67 +1401,48 @@ async function renderReports() {
 
   if (needsFetch) el.innerHTML = loadingHtml();
 
-  let meals = _mealsCache;
+  let meals;
   if (needsFetch) {
     try {
-      const r = await api("/meals?limit=500");
+      meals = await ensureReportMeals();
       if (gen !== _reportsRenderGen) return;
-      if (!r.ok) {
-        el.innerHTML = `<p class="report-summary-empty">${escape(t("load_data_failed"))}</p>`;
-        return;
-      }
-      meals = await r.json();
-      if (gen !== _reportsRenderGen) return;
-      _mealsCache = meals;
     } catch {
       if (gen !== _reportsRenderGen) return;
       el.innerHTML = `<p class="report-summary-empty">${escape(t("load_data_failed"))}</p>`;
       return;
     }
+  } else {
+    meals = _mealsCache;
   }
 
-  const period = document.getElementById("report-period")?.value || "week";
-  const nutrientSet = document.getElementById("report-nutrients")?.value || "macros";
-  const nutrientSets = getReportNutrientSets();
-  const nutrients = nutrientSets[nutrientSet] || nutrientSets.macros;
-  const buckets = buildReportBuckets(period);
+  const view = buildReportView(meals);
   if (gen !== _reportsRenderGen) return;
 
-  if (buckets.length === 0) {
+  if (view.buckets.length === 0) {
     el.innerHTML = `<p class="report-summary-empty">${escape(t("report_empty_range"))}</p>`;
     return;
   }
 
-  const bucketMap = new Map(buckets.map((b) => [b.key, b]));
-  for (const m of meals) {
-    const key = bucketKeyForMeal(m.date, period === "custom" ? "day" : period);
-    const bucket = bucketMap.get(key);
-    if (!bucket) continue;
-    bucket.count += 1;
-    for (const n of nutrients) {
-      bucket.totals[n.key] = (bucket.totals[n.key] || 0) + (Number(m[n.key]) || 0);
-    }
-  }
+  const maxCal = Math.max(1, ...view.buckets.map((b) => b.totals.calories || 0));
 
-  const maxCal = Math.max(1, ...buckets.map((b) => b.totals.calories || 0));
-
-  if (buckets.every((b) => b.count === 0)) {
+  if (view.buckets.every((b) => b.count === 0)) {
     el.innerHTML = `<p class="report-summary-empty">${escape(t("report_no_meals"))}</p>`;
     return;
   }
 
+  const { period, nutrients, buckets, effectivePeriod } = view;
   if (gen !== _reportsRenderGen) return;
   el.innerHTML = `
     <div class="reports-periods">
       ${buckets.map((b, i) => {
         const cal = b.totals.calories || 0;
         const pct = (cal / maxCal) * 100;
-        const avg = avgPerDay(cal, period === "custom" ? "day" : period, b);
+        const avg = avgPerDay(cal, effectivePeriod, b);
         const primary = nutrients.slice(0, 4);
         return `
           <div class="report-period ${i === 0 ? "current" : ""}">
             <div class="report-period-header">
-              <span class="report-period-label">${periodLabel(b, period === "custom" ? "day" : period, i)}</span>
+              <span class="report-period-label">${periodLabel(b, effectivePeriod, i)}</span>
               <span class="report-period-meta">${b.count} ${b.count === 1 ? t("meals_one") : t("meals_many")}</span>
             </div>
             <div class="report-bar"><div class="report-bar-fill" style="width:${pct}%"></div></div>
@@ -1424,6 +1459,71 @@ async function renderReports() {
       }).join("")}
     </div>
   `;
+}
+
+async function exportReportData() {
+  const btn = document.getElementById("report-export-btn");
+  const format = document.getElementById("report-export-format")?.value || "csv";
+  if (btn) btn.disabled = true;
+  try {
+    const meals = await ensureReportMeals();
+    const view = buildReportView(meals);
+    if (view.buckets.length === 0) {
+      alert(t("report_empty_range"));
+      return;
+    }
+    if (view.buckets.every((b) => b.count === 0)) {
+      alert(t("report_no_meals"));
+      return;
+    }
+
+    const rows = reportPeriodRows(view);
+    const date = new Date().toISOString().slice(0, 10);
+    const fromEl = document.getElementById("report-custom-from");
+    const toEl = document.getElementById("report-custom-to");
+
+    if (format === "json") {
+      const payload = {
+        exported_at: new Date().toISOString(),
+        app: "MacrosSimple",
+        filters: {
+          period: view.period,
+          nutrients: view.nutrientSet,
+          from: view.period === "custom" ? fromEl?.value || null : null,
+          to: view.period === "custom" ? toEl?.value || null : null,
+        },
+        periods: rows,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `macrossimple-report-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const headers = [
+      "Period",
+      "Start date",
+      "Meals",
+      ...view.nutrients.map((n) => `${n.label} (${n.unit})`),
+      "Avg kcal/day",
+    ];
+    const csvRows = rows.map((row) => [
+      row.label,
+      row.start,
+      row.meals,
+      ...view.nutrients.map((n) => row.totals[n.key] ?? 0),
+      row.avg_kcal_per_day,
+    ]);
+    downloadCsv(`macrossimple-report-${date}.csv`, rowsToCsv(headers, csvRows));
+  } catch (e) {
+    alert(t("export_failed", { msg: e.message || e }));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function initReportsControls() {
@@ -1458,6 +1558,7 @@ function initReportsControls() {
   toInput?.addEventListener("change", renderReports);
   syncCustomVisibility();
 
+  document.getElementById("report-export-btn")?.addEventListener("click", exportReportData);
   document.getElementById("export-json-btn")?.addEventListener("click", exportUserDataJson);
 }
 

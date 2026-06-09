@@ -6,7 +6,7 @@
 (function (global) {
   const COOKIE_KEY = "macrossimple_lang";
   const COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
-  const LOCALE_VERSION = "38";
+  const LOCALE_VERSION = "39";
   const DEFAULT_LANG = "en";
 
   const SUPPORTED = {

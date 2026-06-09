@@ -24,3 +24,20 @@ def verify_password(plain: str, hashed: str) -> bool:
         return bcrypt.checkpw(plain.encode("utf-8")[:72], hashed.encode("utf-8"))
     except (ValueError, TypeError):
         return False
+
+
+def validate_password_strength(password: str) -> str | None:
+    """Return an error message if the password is too weak, else None."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters"
+    if len(password) > 72:
+        return "Password must be at most 72 characters"
+    if not any(c.isupper() for c in password):
+        return "Password must include an uppercase letter"
+    if not any(c.islower() for c in password):
+        return "Password must include a lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return "Password must include a number"
+    if not any(not c.isalnum() for c in password):
+        return "Password must include a special character"
+    return None

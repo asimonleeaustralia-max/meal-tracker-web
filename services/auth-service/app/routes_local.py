@@ -23,7 +23,7 @@ from .activity import client_ip, record_login
 from .config import Settings, get_settings
 from .deps import current_user, current_user_id, get_db
 from .models import RefreshToken, User
-from .passwords import hash_password, verify_password
+from .passwords import hash_password, validate_password_strength, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -110,6 +110,9 @@ async def signup(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> TokenPair:
+    if err := validate_password_strength(payload.password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err)
+
     # Reject duplicates
     existing = await db.scalar(select(User).where(User.email == payload.email))
     if existing is not None:

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="app-version" content="dev" />
   <title>MacrosSimple</title>
-  <link rel="stylesheet" href="/styles.css?v=47" />
+  <link rel="stylesheet" href="/styles.css?v=48" />
 </head>
 <body>
   <header>
@@ -16,14 +16,14 @@
   <main>
     <!-- LOGIN / SIGNUP -->
     <section id="auth-section">
-      <div class="card">
+      <div id="login-view" class="card auth-card">
         <div id="login-error" class="error" hidden></div>
 
         <form id="login-form">
           <label><span data-i18n="email">Email</span> <input type="email" name="email" required autocomplete="username"></label>
           <label><span data-i18n="password">Password</span> <input type="password" name="password" required autocomplete="current-password"></label>
           <button type="submit" id="login-submit-btn" data-i18n="sign_in">Sign in</button>
-          <button type="button" id="signup-btn" class="ghost" data-i18n="create_account">Create account</button>
+          <button type="button" id="goto-register-btn" class="ghost" data-i18n="register_new_user">Register new user</button>
         </form>
 
         <div class="oauth-row">
@@ -31,6 +31,26 @@
           <a class="oauth-btn apple"    href="/api/auth/oauth/apple/login" data-i18n="oauth_apple">Continue with Apple</a>
           <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login" data-i18n="oauth_facebook">Continue with Facebook</a>
         </div>
+      </div>
+
+      <div id="register-view" class="card auth-card" hidden>
+        <h2 class="auth-heading" data-i18n="register_title">Create your account</h2>
+        <div id="register-error" class="error" hidden></div>
+
+        <form id="register-form">
+          <label><span data-i18n="email">Email</span> <input type="email" name="email" required autocomplete="username"></label>
+          <label>
+            <span data-i18n="password">Password</span>
+            <input type="password" name="password" required autocomplete="new-password" minlength="8">
+          </label>
+          <label>
+            <span data-i18n="confirm_password">Confirm password</span>
+            <input type="password" name="password_confirm" required autocomplete="new-password" minlength="8">
+          </label>
+          <p class="password-hint muted" data-i18n="password_requirements">At least 8 characters with uppercase, lowercase, a number, and a special character.</p>
+          <button type="submit" id="register-submit-btn" data-i18n="register_submit">Create account</button>
+          <button type="button" id="goto-login-btn" class="ghost" data-i18n="back_to_sign_in">Back to sign in</button>
+        </form>
       </div>
     </section>
 
@@ -487,6 +507,6 @@
   </div>
 
   <script src="/i18n.js?v=47"></script>
-  <script src="/app.js?v=48"></script>
+  <script src="/app.js?v=49"></script>
 </body>
 </html>

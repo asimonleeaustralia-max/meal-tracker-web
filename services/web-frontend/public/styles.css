@@ -177,7 +177,18 @@ button.ghost {
   opacity: 0.5;
   cursor: not-allowed;
 }
-#login-form button:disabled {
+.auth-heading {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.password-hint {
+  margin: -4px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+#login-form button:disabled,
+#register-form button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

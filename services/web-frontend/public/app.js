@@ -180,6 +180,7 @@ function render() {
   }
   document.getElementById("auth-section").hidden = authed;
   document.getElementById("app-section").hidden = !authed;
+  if (!authed) showAuthView("login");
   const bar = document.getElementById("user-bar");
   bar.textContent = authed ? "" : "";
   if (authed) {
@@ -218,27 +219,48 @@ function render() {
   }
 }
 
-// ---- Login + signup ----
-function setAuthLoading(busy) {
-  const form = document.getElementById("login-form");
+// ---- Login + registration ----
+function showAuthView(view) {
+  const loginView = document.getElementById("login-view");
+  const registerView = document.getElementById("register-view");
+  if (loginView) loginView.hidden = view !== "login";
+  if (registerView) registerView.hidden = view !== "register";
+  document.getElementById("login-error").hidden = true;
+  const registerError = document.getElementById("register-error");
+  if (registerError) registerError.hidden = true;
+}
+
+function validatePassword(password) {
+  if (password.length < 8) return t("password_too_short");
+  if (password.length > 72) return t("password_too_long");
+  if (!/[A-Z]/.test(password)) return t("password_needs_upper");
+  if (!/[a-z]/.test(password)) return t("password_needs_lower");
+  if (!/[0-9]/.test(password)) return t("password_needs_digit");
+  if (!/[^A-Za-z0-9]/.test(password)) return t("password_needs_special");
+  return null;
+}
+
+function setAuthLoading(busy, formId = "login-form") {
+  const form = document.getElementById(formId);
   const loadingEl = document.getElementById("login-loading");
-  const submitBtn = document.getElementById("login-submit-btn");
-  const signupBtn = document.getElementById("signup-btn");
-  form.querySelectorAll("input").forEach((el) => { el.disabled = busy; });
+  const submitBtn = form?.querySelector('button[type="submit"]');
+  form?.querySelectorAll("input, button").forEach((el) => { el.disabled = busy; });
   if (submitBtn) submitBtn.disabled = busy;
-  if (signupBtn) signupBtn.disabled = busy;
   document.querySelectorAll("#auth-section .oauth-btn").forEach((a) => {
     if (busy) a.setAttribute("aria-disabled", "true");
     else a.removeAttribute("aria-disabled");
   });
   if (loadingEl) loadingEl.hidden = !busy;
-  form.setAttribute("aria-busy", busy ? "true" : "false");
+  form?.setAttribute("aria-busy", busy ? "true" : "false");
 }
+
+document.getElementById("goto-register-btn").onclick = () => showAuthView("register");
+document.getElementById("goto-login-btn").onclick = () => showAuthView("login");
 
 document.querySelectorAll("#auth-section .oauth-btn").forEach((a) => {
   a.addEventListener("click", () => {
     document.getElementById("login-error").hidden = true;
-    setAuthLoading(true);
+    setAuthLoading(true, "login-form");
   });
 });
 
@@ -247,48 +269,61 @@ document.getElementById("login-form").onsubmit = async (e) => {
   document.getElementById("login-error").hidden = true;
   const fd = new FormData(e.target);
   const body = { email: fd.get("email"), password: fd.get("password") };
-  setAuthLoading(true);
+  setAuthLoading(true, "login-form");
   try {
     const r = await fetch(`${API}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!r.ok) return showError(await niceError(r));
+    if (!r.ok) return showAuthError("login-error", await niceError(r));
     const p = await r.json();
     tokens.set(p.access_token, p.refresh_token, p.session_id);
     render();
   } finally {
-    setAuthLoading(false);
+    setAuthLoading(false, "login-form");
   }
 };
 
-document.getElementById("signup-btn").onclick = async () => {
-  const form = document.getElementById("login-form");
-  document.getElementById("login-error").hidden = true;
-  const fd = new FormData(form);
-  const body = { email: fd.get("email"), password: fd.get("password") };
-  setAuthLoading(true);
+document.getElementById("register-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("register-error");
+  errEl.hidden = true;
+  const fd = new FormData(e.target);
+  const email = String(fd.get("email") || "").trim();
+  const password = String(fd.get("password") || "");
+  const confirm = String(fd.get("password_confirm") || "");
+
+  if (password !== confirm) {
+    return showAuthError("register-error", t("password_mismatch"));
+  }
+  const pwErr = validatePassword(password);
+  if (pwErr) return showAuthError("register-error", pwErr);
+
+  setAuthLoading(true, "register-form");
   try {
     const r = await fetch(`${API}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ email, password }),
     });
-    if (!r.ok) return showError(await niceError(r));
+    if (!r.ok) return showAuthError("register-error", await niceError(r));
     const p = await r.json();
     tokens.set(p.access_token, p.refresh_token, p.session_id);
     render();
   } finally {
-    setAuthLoading(false);
+    setAuthLoading(false, "register-form");
   }
 };
 
 // ---- Helpers ----
-function showError(msg) {
-  const el = document.getElementById("login-error");
+function showAuthError(elementId, msg) {
+  const el = document.getElementById(elementId);
   el.textContent = msg;
   el.hidden = false;
+}
+function showError(msg) {
+  showAuthError("login-error", msg);
 }
 async function niceError(r) {
   try { const j = await r.json(); return j.detail || `${r.status} ${r.statusText}`; }

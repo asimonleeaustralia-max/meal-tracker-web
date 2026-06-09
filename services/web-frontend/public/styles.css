@@ -275,6 +275,12 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
 .settings-export {
   margin-top: 0;
 }
+.settings-disclaimer {
+  margin-top: 28px;
+  margin-bottom: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
 .settings-version-row {
   margin-top: 4px;
   margin-bottom: 0;

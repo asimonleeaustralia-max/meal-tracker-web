@@ -171,5 +171,6 @@
   "nutrient_calcium": "カルシウム",
   "nutrient_iron": "鉄",
   "nutrient_potassium": "カリウム",
-  "nutrient_magnesium": "マグネシウム"
+  "nutrient_magnesium": "マグネシウム",
+  "medical_disclaimer": "このアプリは情報提供のみを目的としており、医学的アドバイスを構成するものではありません。食事や健康に関する決定を下す前に、資格のある医療専門家に相談してください。"
 }

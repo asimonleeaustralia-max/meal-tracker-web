@@ -171,5 +171,6 @@
   "nutrient_iron": "Raud",
   "nutrient_vitamin_d": "D-vitamiin",
   "nutrient_calcium": "Kaltsium",
-  "nutrient_potassium": "kaalium"
+  "nutrient_potassium": "kaalium",
+  "medical_disclaimer": "See rakendus on ainult informatiivsel eesmärgil ega kujuta endast meditsiinilist nõuannet. Enne toitumis- või terviseotsuste tegemist pidage nõu kvalifitseeritud tervishoiutöötajaga."
 }

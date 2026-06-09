@@ -171,5 +171,6 @@
   "nutrient_potassium": "Kalij",
   "nutrient_omega3": "Omega-3",
   "nutrient_calcium": "Kalcij",
-  "nutrient_vitamin_d": "Vit D"
+  "nutrient_vitamin_d": "Vit D",
+  "medical_disclaimer": "Ova je aplikacija samo u informativne svrhe i ne predstavlja medicinski savjet. Posavjetujte se s kvalificiranim zdravstvenim radnikom prije donošenja prehrambenih ili zdravstvenih odluka."
 }

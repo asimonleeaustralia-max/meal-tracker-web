@@ -171,5 +171,6 @@
   "nutrient_calcium": "Kalsiyum",
   "nutrient_iron": "Ütü",
   "nutrient_potassium": "Potasyum",
-  "nutrient_magnesium": "Magnezyum"
+  "nutrient_magnesium": "Magnezyum",
+  "medical_disclaimer": "Bu uygulama yalnızca bilgilendirme amaçlıdır ve tıbbi tavsiye niteliğinde değildir. Diyet veya sağlıkla ilgili kararlar vermeden önce kalifiye bir sağlık uzmanına danışın."
 }

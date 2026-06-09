@@ -171,5 +171,6 @@
   "nutrient_vitamin_a": "Vit A",
   "nutrient_vitamin_d": "D vitamin",
   "nutrient_plant_protein": "Növényi fehérje",
-  "nutrient_vitamin_c": "C-vitamin"
+  "nutrient_vitamin_c": "C-vitamin",
+  "medical_disclaimer": "Ez az alkalmazás csak tájékoztató jellegű, és nem minősül orvosi tanácsnak. Mielőtt étrendi vagy egészségügyi döntéseket hozna, konzultáljon szakképzett egészségügyi szakemberrel."
 }

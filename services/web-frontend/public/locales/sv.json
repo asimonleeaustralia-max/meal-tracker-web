@@ -171,5 +171,6 @@
   "nutrient_magnesium": "Magnesium",
   "nutrient_iron": "Järn",
   "nutrient_calcium": "Kalcium",
-  "nutrient_vitamin_d": "Vit D"
+  "nutrient_vitamin_d": "Vit D",
+  "medical_disclaimer": "Denna app är endast i informationssyfte och utgör inte medicinsk rådgivning. Rådfråga en kvalificerad sjukvårdspersonal innan du fattar kost- eller hälsobeslut."
 }

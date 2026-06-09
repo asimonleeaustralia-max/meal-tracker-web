@@ -171,5 +171,6 @@
   "nutrient_calcium": "Calciu",
   "nutrient_iron": "Fier",
   "nutrient_potassium": "Potasiu",
-  "nutrient_magnesium": "Magneziu"
+  "nutrient_magnesium": "Magneziu",
+  "medical_disclaimer": "Această aplicație are doar scop informativ și nu constituie sfaturi medicale. Consultați un profesionist calificat în domeniul sănătății înainte de a lua decizii legate de dietă sau de sănătate."
 }

@@ -171,5 +171,6 @@
   "nutrient_potassium": "پتاسیم",
   "nutrient_vitamin_d": "ویتامین D",
   "nutrient_monounsaturated_fat": "چربی مونو",
-  "nutrient_polyunsaturated_fat": "پلی چربی"
+  "nutrient_polyunsaturated_fat": "پلی چربی",
+  "medical_disclaimer": "این برنامه فقط برای مقاصد اطلاعاتی است و توصیه پزشکی نیست. قبل از تصمیم گیری در مورد رژیم غذایی یا سلامتی با یک متخصص مراقبت های بهداشتی واجد شرایط مشورت کنید."
 }

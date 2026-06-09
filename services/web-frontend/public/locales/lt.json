@@ -171,5 +171,6 @@
   "nutrient_vitamin_d": "Vit D",
   "nutrient_calcium": "Kalcis",
   "nutrient_vitamin_c": "Vitaminas C",
-  "nutrient_iron": "Geležis"
+  "nutrient_iron": "Geležis",
+  "medical_disclaimer": "Ši programa skirta tik informaciniams tikslams ir nėra medicininė konsultacija. Prieš priimdami mitybos ar sveikatos sprendimus, pasitarkite su kvalifikuotu sveikatos priežiūros specialistu."
 }

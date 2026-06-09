@@ -171,5 +171,6 @@
   "tooltip_omega3": "Omega-3 脂肪酸（以克为单位）。",
   "tooltip_omega6": "Omega-6 脂肪酸（以克为单位）。",
   "tooltip_protein": "总蛋白质（以克为单位）。展开源细分。",
-  "tooltip_animal_protein": "来自动物源（肉、乳制品、蛋）的蛋白质。"
+  "tooltip_animal_protein": "来自动物源（肉、乳制品、蛋）的蛋白质。",
+  "medical_disclaimer": "该应用程序仅供参考，并不构成医疗建议。在做出饮食或健康决定之前，请咨询合格的医疗保健专业人员。"
 }

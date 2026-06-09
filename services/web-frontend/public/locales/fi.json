@@ -171,5 +171,6 @@
   "nutrient_calcium": "Kalsium",
   "nutrient_iron": "Rauta",
   "nutrient_vitamin_c": "C-vitamiini",
-  "nutrient_vitamin_d": "D-vitamiini"
+  "nutrient_vitamin_d": "D-vitamiini",
+  "medical_disclaimer": "Tämä sovellus on tarkoitettu vain tiedoksi, eikä se ole lääketieteellistä neuvontaa. Keskustele pätevän terveydenhuollon ammattilaisen kanssa ennen kuin teet ruokavalio- tai terveyspäätöksiä."
 }

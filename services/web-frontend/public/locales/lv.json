@@ -171,5 +171,6 @@
   "nutrient_vitamin_d": "D vitamīns",
   "nutrient_vitamin_c": "C vitamīns",
   "nutrient_magnesium": "Magnijs",
-  "nutrient_calcium": "Kalcijs"
+  "nutrient_calcium": "Kalcijs",
+  "medical_disclaimer": "Šī lietotne ir paredzēta tikai informatīviem nolūkiem un nav uzskatāma par medicīnisku padomu. Pirms uztura vai veselības lēmumu pieņemšanas konsultējieties ar kvalificētu veselības aprūpes speciālistu."
 }

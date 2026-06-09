@@ -171,5 +171,6 @@
   "nutrient_magnesium": "magnézium",
   "nutrient_caffeine": "kofeín",
   "nutrient_vitamin_d": "Vit D",
-  "nutrient_vitamin_c": "Vit C"
+  "nutrient_vitamin_c": "Vit C",
+  "medical_disclaimer": "Táto aplikácia slúži iba na informačné účely a nepredstavuje lekársku pomoc. Pred prijatím diétnych alebo zdravotných rozhodnutí sa poraďte s kvalifikovaným zdravotníckym pracovníkom."
 }

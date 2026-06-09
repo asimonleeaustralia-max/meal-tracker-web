@@ -171,5 +171,6 @@
   "nutrient_calcium": "Cálcio",
   "nutrient_iron": "Ferro",
   "nutrient_potassium": "Potássio",
-  "nutrient_magnesium": "Magnésio"
+  "nutrient_magnesium": "Magnésio",
+  "medical_disclaimer": "Este aplicativo é apenas para fins informativos e não constitui aconselhamento médico. Consulte um profissional de saúde qualificado antes de tomar decisões dietéticas ou de saúde."
 }

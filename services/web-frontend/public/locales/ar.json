@@ -171,5 +171,6 @@
   "nutrient_calcium": "الكالسيوم",
   "nutrient_iron": "حديد",
   "nutrient_potassium": "البوتاسيوم",
-  "nutrient_magnesium": "المغنيسيوم"
+  "nutrient_magnesium": "المغنيسيوم",
+  "medical_disclaimer": "هذا التطبيق لأغراض إعلامية فقط ولا يشكل نصيحة طبية. استشر أخصائي الرعاية الصحية المؤهل قبل اتخاذ القرارات الغذائية أو الصحية."
 }

@@ -171,5 +171,6 @@
   "nutrient_calcium": "סִידָן",
   "nutrient_magnesium": "מגנזיום",
   "nutrient_vitamin_d": "ויט ד",
-  "nutrient_vitamin_c": "ויט סי"
+  "nutrient_vitamin_c": "ויט סי",
+  "medical_disclaimer": "אפליקציה זו מיועדת למטרות מידע בלבד ואינה מהווה ייעוץ רפואי. התייעץ עם איש מקצוע מוסמך בתחום הבריאות לפני קבלת החלטות תזונתיות או בריאותיות."
 }

@@ -69,6 +69,7 @@
   "reports": "Reports",
   "export_json": "Export JSON",
   "export_json_hint": "Download all your meals and photo metadata as a JSON file for backup or use in other apps.",
+  "medical_disclaimer": "This app is for informational purposes only and does not constitute medical advice. Consult a qualified healthcare professional before making dietary or health decisions.",
   "period": "Period",
   "period_week": "Weekly",
   "period_month": "Monthly",

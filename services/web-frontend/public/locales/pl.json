@@ -171,5 +171,6 @@
   "nutrient_calcium": "Wapń",
   "nutrient_iron": "Żelazo",
   "nutrient_potassium": "Potas",
-  "nutrient_magnesium": "Magnez"
+  "nutrient_magnesium": "Magnez",
+  "medical_disclaimer": "Ta aplikacja służy wyłącznie celom informacyjnym i nie stanowi porady lekarskiej. Przed podjęciem decyzji dietetycznych lub zdrowotnych skonsultuj się z wykwalifikowanym pracownikiem służby zdrowia."
 }

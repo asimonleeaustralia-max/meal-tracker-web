@@ -171,5 +171,6 @@
   "tooltip_omega3": "Acides gras oméga-3 en grammes.",
   "tooltip_omega6": "Acides gras oméga-6 en grammes.",
   "tooltip_protein": "Protéines totales en grammes. Développez pour la répartition des sources.",
-  "tooltip_animal_protein": "Protéines d'origine animale (viande, produits laitiers, œufs)."
+  "tooltip_animal_protein": "Protéines d'origine animale (viande, produits laitiers, œufs).",
+  "medical_disclaimer": "Cette application est à titre informatif uniquement et ne constitue pas un avis médical. Consultez un professionnel de la santé qualifié avant de prendre des décisions alimentaires ou de santé."
 }

@@ -171,5 +171,6 @@
   "nutrient_iron": "Železo",
   "nutrient_magnesium": "Hořčík",
   "nutrient_vitamin_d": "Vít D",
-  "nutrient_vitamin_c": "Vít C"
+  "nutrient_vitamin_c": "Vít C",
+  "medical_disclaimer": "Tato aplikace slouží pouze pro informační účely a nepředstavuje lékařskou pomoc. Než učiníte dietní nebo zdravotní rozhodnutí, poraďte se s kvalifikovaným zdravotníkem."
 }

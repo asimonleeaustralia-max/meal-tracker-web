@@ -4,19 +4,24 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MacrosSimple</title>
-  <link rel="stylesheet" href="/styles.css?v=30" />
+  <link rel="stylesheet" href="/styles.css?v=31" />
 </head>
 <body>
   <header>
     <h1 class="brand"><span class="brand-macros">Macros</span><span class="brand-simple">Simple</span></h1>
-    <div id="user-bar"></div>
+    <div class="header-actions">
+      <label class="header-language">
+        <span class="sr-only" data-i18n="settings_language">Language</span>
+        <select id="language-select" aria-label="Language"></select>
+      </label>
+      <div id="user-bar"></div>
+    </div>
   </header>
 
   <main>
     <!-- LOGIN / SIGNUP -->
     <section id="auth-section">
       <div class="card">
-        <h2 data-i18n="sign_in">Sign in</h2>
         <div id="login-error" class="error" hidden></div>
 
         <form id="login-form">
@@ -31,10 +36,6 @@
           <a class="oauth-btn apple"    href="/api/auth/oauth/apple/login" data-i18n="oauth_apple">Continue with Apple</a>
           <a class="oauth-btn facebook" href="/api/auth/oauth/facebook/login" data-i18n="oauth_facebook">Continue with Facebook</a>
         </div>
-        <label class="auth-language settings-field">
-          <span data-i18n="settings_language">Language</span>
-          <select id="language-select-guest"></select>
-        </label>
       </div>
     </section>
 
@@ -44,7 +45,6 @@
         <button type="button" class="tab active" data-tab="log" data-i18n="tab_log">Log meal</button>
         <button type="button" class="tab" data-tab="history" data-i18n="tab_history">History</button>
         <button type="button" class="tab" data-tab="reports" data-i18n="tab_reports">Reports</button>
-        <button type="button" class="tab" data-tab="settings" data-i18n="tab_settings">Settings</button>
       </nav>
 
       <div id="tab-log" class="tab-pane active">
@@ -67,12 +67,12 @@
           <div id="photo-strip" class="photo-strip" hidden></div>
           <form id="add-meal-form">
           <label class="form-field">
-            <span class="label-row"><span data-i18n="title">Title</span> <button type="button" class="hint-btn" data-tooltip-key="tooltip_title" aria-label="Help">?</button></span>
+            <span class="label-row"><span data-i18n="title">Title</span></span>
             <input type="text" name="title" data-i18n-placeholder="title_placeholder" placeholder="e.g. Lunch — chicken salad" required>
           </label>
 
           <div class="datetime-picker" id="meal-datetime">
-            <span class="label-row form-label"><span data-i18n="date_time">Date &amp; time</span> <button type="button" class="hint-btn" data-tooltip-key="tooltip_date" aria-label="Help">?</button></span>
+            <span class="label-row form-label"><span data-i18n="date_time">Date &amp; time</span></span>
             <input type="hidden" name="date" required>
             <div class="datetime-row">
               <label class="datetime-field">
@@ -90,7 +90,7 @@
           <div class="nutrient-section">
           <div class="field-row field-row-primary">
             <label class="field-label required">Calories</label>
-            <button type="button" class="hint-btn" data-tooltip-key="tooltip_calories" aria-label="Help">?</button>
+           
             <input type="number" name="calories" min="0" step="any" placeholder="0" required>
             <div class="guess-toggle" data-target="calories_is_guess">
               <input type="checkbox" name="calories_is_guess" checked>
@@ -100,7 +100,7 @@
           </div>
           <div class="field-row">
             <label class="field-label">Sodium (mg)</label>
-            <button type="button" class="hint-btn" data-tooltip-key="tooltip_sodium" aria-label="Help">?</button>
+           
             <input type="number" name="sodium" min="0" step="any" value="0">
             <div class="guess-toggle" data-target="sodium_is_guess">
               <input type="checkbox" name="sodium_is_guess" checked>
@@ -114,7 +114,7 @@
               <span class="macro-chevron" aria-hidden="true"></span>
               <div class="field-row macro-summary-row">
               <label class="field-label parent">Carbs (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_carbohydrates" aria-label="Help">?</button>
+             
               <input type="number" name="carbohydrates" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="carbohydrates_is_guess">
                 <input type="checkbox" name="carbohydrates_is_guess" checked>
@@ -126,7 +126,7 @@
             <div class="macro-children">
               <div class="field-row child">
               <label class="field-label">Starch (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_starch" aria-label="Help">?</button>
+             
               <input type="number" name="starch" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="starch_is_guess">
                 <input type="checkbox" name="starch_is_guess" checked>
@@ -136,7 +136,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Sugars (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_sugars" aria-label="Help">?</button>
+             
               <input type="number" name="sugars" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="sugars_is_guess">
                 <input type="checkbox" name="sugars_is_guess" checked>
@@ -146,7 +146,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Fibre (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_fibre" aria-label="Help">?</button>
+             
               <input type="number" name="fibre" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="fibre_is_guess">
                 <input type="checkbox" name="fibre_is_guess" checked>
@@ -162,7 +162,7 @@
               <span class="macro-chevron" aria-hidden="true"></span>
               <div class="field-row macro-summary-row">
               <label class="field-label parent">Fat (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_fat" aria-label="Help">?</button>
+             
               <input type="number" name="fat" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="fat_is_guess">
                 <input type="checkbox" name="fat_is_guess" checked>
@@ -174,7 +174,7 @@
             <div class="macro-children">
               <div class="field-row child">
               <label class="field-label">Monounsaturated (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_monounsaturated_fat" aria-label="Help">?</button>
+             
               <input type="number" name="monounsaturated_fat" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="monounsaturated_fat_is_guess">
                 <input type="checkbox" name="monounsaturated_fat_is_guess" checked>
@@ -184,7 +184,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Polyunsaturated (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_polyunsaturated_fat" aria-label="Help">?</button>
+             
               <input type="number" name="polyunsaturated_fat" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="polyunsaturated_fat_is_guess">
                 <input type="checkbox" name="polyunsaturated_fat_is_guess" checked>
@@ -194,7 +194,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Saturated (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_saturated_fat" aria-label="Help">?</button>
+             
               <input type="number" name="saturated_fat" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="saturated_fat_is_guess">
                 <input type="checkbox" name="saturated_fat_is_guess" checked>
@@ -204,7 +204,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Trans (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_trans_fat" aria-label="Help">?</button>
+             
               <input type="number" name="trans_fat" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="trans_fat_is_guess">
                 <input type="checkbox" name="trans_fat_is_guess" checked>
@@ -214,7 +214,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Omega-3 (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_omega3" aria-label="Help">?</button>
+             
               <input type="number" name="omega3" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="omega3_is_guess">
                 <input type="checkbox" name="omega3_is_guess" checked>
@@ -224,7 +224,7 @@
             </div>
             <div class="field-row child">
               <label class="field-label">Omega-6 (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_omega6" aria-label="Help">?</button>
+             
               <input type="number" name="omega6" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="omega6_is_guess">
                 <input type="checkbox" name="omega6_is_guess" checked>
@@ -240,7 +240,7 @@
               <span class="macro-chevron" aria-hidden="true"></span>
               <div class="field-row macro-summary-row">
               <label class="field-label parent">Protein (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_protein" aria-label="Help">?</button>
+             
               <input type="number" name="protein" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="protein_is_guess">
                 <input type="checkbox" name="protein_is_guess" checked>
@@ -252,7 +252,7 @@
             <div class="macro-children">
               <div class="field-row child">
               <label class="field-label">Animal protein (g)</label>
-              <button type="button" class="hint-btn" data-tooltip-key="tooltip_animal_protein" aria-label="Help">?</button>
+             
               <input type="number" name="animal_protein" min="0" step="any" value="0">
               <div class="guess-toggle" data-target="animal_protein_is_guess">
                 <input type="checkbox" name="animal_protein_is_guess" checked>
@@ -360,7 +360,6 @@
       <div id="tab-reports" class="tab-pane" hidden>
         <div class="card">
           <div class="reports-header">
-            <h2 data-i18n="reports">Reports</h2>
             <button type="button" id="export-json-btn" class="btn-with-icon" data-i18n-title="export_json" title="Export all data as JSON">
               <span class="export-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 10 12 15 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
               <span data-i18n="export_json">Export JSON</span>
@@ -394,19 +393,18 @@
       </div>
 
       <div id="tab-settings" class="tab-pane" hidden>
-        <div class="card">
-          <h2 data-i18n="settings">Settings</h2>
-          <p class="muted settings-hint" data-i18n="settings_language_hint">Choose the language for the entire app.</p>
-          <label class="settings-field">
+        <div class="card settings-card">
+          <p class="muted settings-hint" data-i18n="settings_language_hint">App display language.</p>
+          <label class="settings-field settings-field-row">
             <span data-i18n="settings_language">Language</span>
-            <select id="language-select"></select>
+            <select id="language-select-settings"></select>
           </label>
         </div>
       </div>
     </section>
   </main>
 
-  <script src="/i18n.js?v=30"></script>
-  <script src="/app.js?v=30"></script>
+  <script src="/i18n.js?v=31"></script>
+  <script src="/app.js?v=31"></script>
 </body>
 </html>

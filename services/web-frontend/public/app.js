@@ -81,7 +81,6 @@ function render() {
     MealDateTime.setNow();
     initGuessToggles();
     initNutrientValidation();
-    initFieldHints();
   }
 }
 
@@ -167,8 +166,9 @@ function setMealFormMode(editing) {
 function switchToTab(name) {
   const tabs = document.querySelectorAll(".tabs .tab");
   const panes = document.querySelectorAll(".tab-pane");
+  const isSettings = name === "settings";
   for (const tab of tabs) {
-    tab.classList.toggle("active", tab.dataset.tab === name);
+    tab.classList.toggle("active", !isSettings && tab.dataset.tab === name);
   }
   for (const p of panes) {
     const isThis = p.id === "tab-" + name;
@@ -404,29 +404,6 @@ function validateCalories(form) {
   return ok;
 }
 
-function initFieldHints() {
-  document.querySelectorAll(".guess-toggle").forEach((toggle) => {
-    if (toggle.dataset.hintWired) return;
-    toggle.dataset.hintWired = "1";
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "hint-btn hint-btn-inline";
-    btn.dataset.tooltipKey = "tooltip_guess";
-    btn.textContent = "?";
-    btn.addEventListener("click", (e) => e.stopPropagation());
-    toggle.insertBefore(btn, toggle.querySelector(".guess-state"));
-    btn.title = t("tooltip_guess");
-    btn.setAttribute("aria-label", t("tooltip_guess"));
-  });
-  document.querySelectorAll("[data-tooltip-key]").forEach((el) => {
-    const key = el.dataset.tooltipKey;
-    if (key) {
-      el.title = t(key);
-      el.setAttribute("aria-label", t(key));
-    }
-  });
-}
-
 MealDateTime.init();
 
 document.getElementById("add-meal-form").onsubmit = async (e) => {
@@ -603,7 +580,6 @@ for (const s of document.querySelectorAll("details.macro-group > summary")) {
     if (
       e.target.tagName === "INPUT" ||
       e.target.closest(".guess-toggle") ||
-      e.target.closest(".hint-btn") ||
       e.target.classList.contains("field-label")
     ) {
       e.preventDefault();
@@ -630,7 +606,6 @@ function initTabs() {
       }
       if (name === "history") refreshMeals();
       if (name === "reports") renderReports();
-      if (name === "settings") syncLanguageSelects();
     });
   }
 }
@@ -1251,7 +1226,7 @@ async function exportUserDataJson() {
 
 function syncLanguageSelects() {
   const lang = I18n.getLanguage();
-  for (const id of ["language-select", "language-select-guest"]) {
+  for (const id of ["language-select", "language-select-settings"]) {
     const sel = document.getElementById(id);
     if (sel) sel.value = lang;
   }
@@ -1272,14 +1247,13 @@ function populateLanguageSelect(sel) {
 
 function initSettings() {
   populateLanguageSelect(document.getElementById("language-select"));
-  populateLanguageSelect(document.getElementById("language-select-guest"));
+  populateLanguageSelect(document.getElementById("language-select-settings"));
   syncLanguageSelects();
 }
 
 function refreshUIAfterLanguageChange() {
   I18n.applyLanguage();
   syncLanguageSelects();
-  initFieldHints();
   setMealFormMode(!!_editingMealId);
   const activeTab = document.querySelector(".tabs .tab.active")?.dataset.tab;
   if (activeTab === "history" && tokens.access) refreshMeals();
@@ -1297,5 +1271,4 @@ I18n.onLanguageChange(refreshUIAfterLanguageChange);
 I18n.initLanguage();
 initSettings();
 initReportsControls();
-initFieldHints();
 render();

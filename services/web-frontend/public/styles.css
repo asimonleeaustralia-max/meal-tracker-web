@@ -41,6 +41,21 @@ header {
   background: var(--card);
 }
 header h1 { margin: 0; font-size: 1.25rem; }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.header-language {
+  margin: 0;
+}
+.header-language select {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  min-width: 7.5rem;
+}
 main {
   max-width: 720px;
   margin: 16px auto 32px;
@@ -163,23 +178,28 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
   gap: 8px;
 }
 .settings-hint {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
+}
+.settings-card {
+  padding-top: 14px;
 }
 .settings-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 280px;
   font-size: 0.9rem;
   color: var(--muted);
 }
+.settings-field-row {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+}
 .settings-field select {
   font-size: 1rem;
-}
-.auth-language {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  width: 100%;
 }
 header h1.brand {
   font-size: 1.9rem;
@@ -381,9 +401,9 @@ header {
 /* === Full-width field rows === */
 .field-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(72px, 1.2fr) auto;
+  grid-template-columns: 10.5rem minmax(80px, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 8px 12px;
   padding: 8px 0;
   border-bottom: 1px solid #eef1f4;
 }
@@ -420,12 +440,12 @@ header {
   min-height: 40px;
 }
 .field-row.child {
-  grid-template-columns: minmax(0, 1fr) auto minmax(72px, 1.2fr) auto;
+  grid-template-columns: 10.5rem minmax(80px, 1fr) auto;
 }
 .field-row.child .field-label {
   color: var(--muted);
   font-size: 0.82rem;
-  padding-left: 8px;
+  padding-left: 12px;
 }
 
 /* Guess / accurate toggle */
@@ -570,7 +590,7 @@ details.nutrient-group[open] > summary {
   padding: 4px 12px 8px;
 }
 .nutrient-group-body .field-row {
-  grid-template-columns: minmax(0, 1fr) auto minmax(72px, 1.2fr) auto;
+  grid-template-columns: 10.5rem minmax(80px, 1fr) auto;
 }
 
 /* === Validation: warning + error visual flags === */
@@ -888,14 +908,14 @@ svg.icon {
 .reports-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   margin-bottom: 12px;
 }
-.reports-header h2 { margin: 0; }
 .reports-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
   gap: 12px 16px;
   margin-bottom: 16px;
   padding: 12px;
@@ -904,16 +924,18 @@ svg.icon {
   border-radius: 8px;
 }
 .reports-controls label {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   font-size: 0.8rem;
   color: var(--muted);
   gap: 4px;
+  min-width: 0;
 }
 .reports-controls select,
 .reports-controls input[type="date"] {
   font-size: 0.9rem;
-  min-width: 140px;
+  width: 100%;
+  min-width: 0;
 }
 .reports-periods { display: flex; flex-direction: column; gap: 14px; }
 .report-period {
@@ -1038,7 +1060,7 @@ svg.icon {
   .field-row.child,
   .nutrient-group-body .field-row,
   .macro-summary-row {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
     gap: 6px 8px;
     padding: 10px 0;
@@ -1048,26 +1070,22 @@ svg.icon {
     grid-column: 1 / -1;
     padding-left: 0;
   }
-  .field-row .hint-btn:not(.hint-btn-inline) {
+  .field-row input[type="number"] {
     grid-row: 2;
     grid-column: 1;
-    justify-self: start;
   }
-  .field-row input[type="number"] {
+  .field-row .guess-toggle {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: end;
+  }
+  .macro-summary-row .guess-toggle {
     grid-row: 2;
     grid-column: 2;
   }
-  .field-row .guess-toggle {
-    grid-row: 3;
-    grid-column: 1 / -1;
-    justify-self: end;
-    padding-top: 2px;
-  }
-  .macro-summary-row {
-    grid-template-columns: 1fr auto;
-  }
-  .macro-summary-row .guess-toggle {
-    grid-column: 1 / -1;
+  .settings-field-row {
+    grid-template-columns: 1fr;
+    max-width: none;
   }
   .datetime-row {
     flex-direction: column;

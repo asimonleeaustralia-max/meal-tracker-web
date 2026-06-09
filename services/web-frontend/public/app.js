@@ -21,6 +21,69 @@ const tokens = {
   clear() { sessionStorage.removeItem("at"); sessionStorage.removeItem("rt"); },
 };
 
+const HISTORY_PAGE_SIZE = 20;
+let _currentUser = null;
+let _historyPage = 0;
+
+const UserPrefs = {
+  key(userId) { return `macrossimple_prefs_${userId}`; },
+  load(userId) {
+    if (!userId) return {};
+    try {
+      const raw = localStorage.getItem(this.key(userId));
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  },
+  save(userId, partial) {
+    if (!userId) return;
+    try {
+      localStorage.setItem(this.key(userId), JSON.stringify({ ...this.load(userId), ...partial }));
+    } catch { /* ignore */ }
+  },
+};
+
+function saveUserPref(key, value) {
+  if (!_currentUser?.id) return;
+  UserPrefs.save(_currentUser.id, { [key]: value });
+}
+
+async function loadUserAndPrefs() {
+  if (!tokens.access) {
+    _currentUser = null;
+    return null;
+  }
+  try {
+    const r = await api("/auth/me");
+    if (!r.ok) return null;
+    const user = await r.json();
+    if (_currentUser?.id === user.id) return user;
+    _currentUser = user;
+    const prefs = UserPrefs.load(user.id);
+    if (prefs.language) {
+      I18n.setLanguage(prefs.language);
+    } else {
+      saveUserPref("language", I18n.getLanguage());
+    }
+    applyReportPrefs(prefs);
+    syncLanguageSelects();
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+function applyReportPrefs(prefs) {
+  const periodSel = document.getElementById("report-period");
+  const nutrientsSel = document.getElementById("report-nutrients");
+  if (prefs.reportPeriod && periodSel) periodSel.value = prefs.reportPeriod;
+  if (prefs.reportNutrients && nutrientsSel) nutrientsSel.value = prefs.reportNutrients;
+  const custom = periodSel?.value === "custom";
+  const fromWrap = document.getElementById("report-custom-from-wrap");
+  const toWrap = document.getElementById("report-custom-to-wrap");
+  if (fromWrap) fromWrap.hidden = !custom;
+  if (toWrap) toWrap.hidden = !custom;
+}
+
 // ---- OAuth fragment handling ----
 (function handleOAuthFragment() {
   if (!location.hash) return;
@@ -75,7 +138,8 @@ function render() {
       </div>`;
     I18n.applyStaticTranslations(bar);
     document.getElementById("header-settings-btn").onclick = () => switchToTab("settings");
-    document.getElementById("logout-btn").onclick = () => { tokens.clear(); render(); };
+    document.getElementById("logout-btn").onclick = () => { _currentUser = null; tokens.clear(); render(); };
+    loadUserAndPrefs();
     refreshMeals();
     MealDateTime.init();
     MealDateTime.setNow();
@@ -643,20 +707,43 @@ async function fetchPhotosForMeal(mealId) {
   } catch { return []; }
 }
 
+function updateHistoryPagination(meals) {
+  const pag = document.getElementById("history-pagination");
+  const info = document.getElementById("history-page-info");
+  const prev = document.getElementById("history-prev");
+  const next = document.getElementById("history-next");
+  if (!pag) return;
+  const totalPages = Math.max(1, Math.ceil(meals.length / HISTORY_PAGE_SIZE));
+  if (_historyPage >= totalPages) _historyPage = totalPages - 1;
+  pag.hidden = meals.length <= HISTORY_PAGE_SIZE;
+  if (info) info.textContent = t("history_page", { current: _historyPage + 1, total: totalPages });
+  if (prev) prev.disabled = _historyPage <= 0;
+  if (next) next.disabled = _historyPage >= totalPages - 1;
+}
+
 async function refreshMeals() {
   const r = await api("/meals?limit=200");
   if (!r.ok) return;
   const meals = await r.json();
   _mealsCache = meals;
+  renderDailyTotals(meals);
+  renderMealsPage();
+}
+
+function renderMealsPage() {
+  const meals = _mealsCache;
   const tbody = document.querySelector("#meals-table tbody");
   tbody.innerHTML = "";
-  renderDailyTotals(meals);
+  updateHistoryPagination(meals);
 
   if (meals.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center;padding:16px;">${escape(t("no_meals"))}</td></tr>`;
     return;
   }
-  for (const m of meals) {
+
+  const start = _historyPage * HISTORY_PAGE_SIZE;
+  const pageMeals = meals.slice(start, start + HISTORY_PAGE_SIZE);
+  for (const m of pageMeals) {
     const tr = document.createElement("tr");
     tr.dataset.mealId = m.id;
     tr.className = "meal-row";
@@ -689,18 +776,38 @@ async function refreshMeals() {
     });
     tbody.appendChild(tr);
   }
-  const results = await Promise.all(meals.map(m => fetchPhotosForMeal(m.id)));
+  loadMealPhotos(pageMeals);
+}
+
+async function loadMealPhotos(meals) {
+  const results = await Promise.all(meals.map((m) => fetchPhotosForMeal(m.id)));
   for (let i = 0; i < meals.length; i++) {
     const m = meals[i];
     const photos = results[i] || [];
     _photosByMeal[m.id] = photos;
-    const cell = tbody.querySelector(`tr[data-meal-id="${m.id}"] .photos-cell`);
+    const cell = document.querySelector(`#meals-table tr[data-meal-id="${m.id}"] .photos-cell`);
     if (cell) {
       cell.innerHTML = photos.length === 0
         ? '<span class="muted">—</span>'
         : `${photos.length}`;
     }
   }
+}
+
+function initHistoryPagination() {
+  document.getElementById("history-prev")?.addEventListener("click", () => {
+    if (_historyPage > 0) {
+      _historyPage--;
+      renderMealsPage();
+    }
+  });
+  document.getElementById("history-next")?.addEventListener("click", () => {
+    const totalPages = Math.ceil(_mealsCache.length / HISTORY_PAGE_SIZE);
+    if (_historyPage < totalPages - 1) {
+      _historyPage++;
+      renderMealsPage();
+    }
+  });
 }
 
 function startEditMeal(meal) {
@@ -1174,9 +1281,13 @@ function initReportsControls() {
 
   periodSel?.addEventListener("change", () => {
     syncCustomVisibility();
+    saveUserPref("reportPeriod", periodSel.value);
     renderReports();
   });
-  document.getElementById("report-nutrients")?.addEventListener("change", renderReports);
+  document.getElementById("report-nutrients")?.addEventListener("change", (e) => {
+    saveUserPref("reportNutrients", e.target.value);
+    renderReports();
+  });
   fromInput?.addEventListener("change", renderReports);
   toInput?.addEventListener("change", renderReports);
   syncCustomVisibility();
@@ -1226,7 +1337,7 @@ async function exportUserDataJson() {
 
 function syncLanguageSelects() {
   const lang = I18n.getLanguage();
-  for (const id of ["language-select", "language-select-settings"]) {
+  for (const id of ["language-select-guest", "language-select-settings"]) {
     const sel = document.getElementById(id);
     if (sel) sel.value = lang;
   }
@@ -1242,11 +1353,14 @@ function populateLanguageSelect(sel) {
     sel.appendChild(opt);
   }
   sel.dataset.populated = "1";
-  sel.addEventListener("change", () => I18n.setLanguage(sel.value));
+  sel.addEventListener("change", () => {
+    I18n.setLanguage(sel.value);
+    if (sel.id === "language-select-settings") saveUserPref("language", sel.value);
+  });
 }
 
 function initSettings() {
-  populateLanguageSelect(document.getElementById("language-select"));
+  populateLanguageSelect(document.getElementById("language-select-guest"));
   populateLanguageSelect(document.getElementById("language-select-settings"));
   syncLanguageSelects();
 }
@@ -1271,4 +1385,6 @@ I18n.onLanguageChange(refreshUIAfterLanguageChange);
 I18n.initLanguage();
 initSettings();
 initReportsControls();
+initHistoryPagination();
+if (tokens.access) loadUserAndPrefs();
 render();

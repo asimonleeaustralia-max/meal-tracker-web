@@ -19,10 +19,14 @@ services=(api-gateway auth-service meal-service nutrition-service vision-service
 for svc in "${services[@]}"; do
   image="${REGISTRY}/mealtracker/${svc}:${TAG}"
   echo "==> Building ${image}"
+  build_args=(--platform linux/amd64)
+  if [[ "${svc}" == "web-frontend" ]]; then
+    build_args+=(--build-arg "BUILD_VERSION=${TAG}")
+  fi
   docker build \
     -f "services/${svc}/Dockerfile" \
     -t "${image}" \
-    --platform linux/amd64 \
+    "${build_args[@]}" \
     .
   echo "==> Pushing  ${image}"
   docker push "${image}"

@@ -1481,6 +1481,26 @@ function syncLanguageSelects() {
   }
 }
 
+let _appVersionPromise = null;
+
+function getAppVersion() {
+  const meta = document.querySelector('meta[name="app-version"]')?.content;
+  if (meta && meta !== "dev") return meta;
+  return null;
+}
+
+function loadAppVersion() {
+  const fromMeta = getAppVersion();
+  if (fromMeta) return Promise.resolve(fromMeta);
+  if (!_appVersionPromise) {
+    _appVersionPromise = fetch("/version.json")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.version || "unknown")
+      .catch(() => "unknown");
+  }
+  return _appVersionPromise;
+}
+
 function initSettings() {
   populateLanguageSelect(document.getElementById("language-select-settings"));
   const acct = document.getElementById("settings-account-email");
@@ -1492,12 +1512,20 @@ function initSettings() {
       acct.hidden = true;
     }
   }
+  const labelEl = document.getElementById("settings-version-label");
+  if (labelEl) labelEl.textContent = t("settings_version");
+  const verEl = document.getElementById("settings-app-version");
+  if (verEl) {
+    loadAppVersion().then((v) => { verEl.textContent = v; });
+  }
 }
 
 function refreshUIAfterLanguageChange() {
   I18n.applyLanguage();
   syncLanguageSelects();
   setMealFormMode(!!_editingMealId);
+  const labelEl = document.getElementById("settings-version-label");
+  if (labelEl) labelEl.textContent = t("settings_version");
   const activeTab = document.querySelector(".tabs .tab.active")?.dataset.tab;
   if (activeTab === "history" && tokens.access) refreshMeals();
   if (activeTab === "reports") renderReports();

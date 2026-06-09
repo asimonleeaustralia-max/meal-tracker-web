@@ -207,6 +207,15 @@ th { font-weight: 600; color: var(--muted); font-size: 0.85rem; }
 .settings-export {
   margin-top: 0;
 }
+.settings-version-row {
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+.settings-version-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--text);
+}
 .history-pagination {
   display: flex;
   align-items: center;

@@ -15,6 +15,7 @@
   "settings": "Settings",
   "settings_language": "Language",
   "settings_language_hint": "App display language.",
+  "settings_version": "Version",
   "language_group_translated": "Translated",
   "language_group_english_ui": "English interface",
   "add_meal": "Add a meal",

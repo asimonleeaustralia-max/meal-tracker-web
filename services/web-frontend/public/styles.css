@@ -148,6 +148,35 @@ button.ghost {
 @keyframes auth-spin {
   to { transform: rotate(360deg); }
 }
+.content-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.content-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+.daily-totals .content-loading {
+  padding: 8px 0;
+  justify-content: flex-start;
+}
+#meals-table tbody .content-loading {
+  padding: 32px 16px;
+}
+.history-header .icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 #login-form button:disabled {
   opacity: 0.6;
   cursor: not-allowed;

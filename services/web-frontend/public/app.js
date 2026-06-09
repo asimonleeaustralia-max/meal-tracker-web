@@ -297,6 +297,12 @@ async function niceError(r) {
 function escape(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 }
+function loadingHtml(messageKey = "loading") {
+  return `<div class="content-loading" aria-live="polite">
+    <span class="content-spinner" aria-hidden="true"></span>
+    <span>${escape(t(messageKey))}</span>
+  </div>`;
+}
 function num(v, d = 1) { return v == null ? "0" : Number(v).toFixed(d); }
 
 let _editingMealId = null;
@@ -792,6 +798,8 @@ initTabs();
 // ---- Meals list ----
 let _mealsCache = [];
 let _photosByMeal = {};
+let _mealsFetchGen = 0;
+let _reportsRenderGen = 0;
 
 function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
 
@@ -836,12 +844,43 @@ function updateHistoryPagination(meals) {
 }
 
 async function refreshMeals() {
-  const r = await api("/meals?limit=200");
-  if (!r.ok) return;
-  const meals = await r.json();
-  _mealsCache = meals;
-  renderDailyTotals(meals);
-  renderMealsPage();
+  const gen = ++_mealsFetchGen;
+  const tbody = document.querySelector("#meals-table tbody");
+  const dailyEl = document.getElementById("daily-totals");
+  const refreshBtn = document.getElementById("refresh-meals");
+  const pag = document.getElementById("history-pagination");
+
+  if (tbody) tbody.innerHTML = `<tr><td colspan="8">${loadingHtml()}</td></tr>`;
+  if (dailyEl) dailyEl.innerHTML = loadingHtml();
+  if (pag) pag.hidden = true;
+  if (refreshBtn) refreshBtn.disabled = true;
+
+  try {
+    const r = await api("/meals?limit=200");
+    if (gen !== _mealsFetchGen) return;
+    if (!r.ok) {
+      const msg = t("load_data_failed");
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center;padding:16px;">${escape(msg)}</td></tr>`;
+      }
+      if (dailyEl) dailyEl.innerHTML = "";
+      return;
+    }
+    const meals = await r.json();
+    if (gen !== _mealsFetchGen) return;
+    _mealsCache = meals;
+    renderDailyTotals(meals);
+    renderMealsPage();
+  } catch {
+    if (gen !== _mealsFetchGen) return;
+    const msg = t("load_data_failed");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center;padding:16px;">${escape(msg)}</td></tr>`;
+    }
+    if (dailyEl) dailyEl.innerHTML = "";
+  } finally {
+    if (gen === _mealsFetchGen && refreshBtn) refreshBtn.disabled = false;
+  }
 }
 
 function renderMealsPage() {
@@ -1303,16 +1342,27 @@ function renderNutrientGrid(totals, nutrients) {
 async function renderReports() {
   const el = document.getElementById("reports-content");
   if (!el) return;
-  el.innerHTML = `<p class="muted">${escape(t("loading"))}</p>`;
+  const gen = ++_reportsRenderGen;
+  const needsFetch = !_mealsCache || _mealsCache.length === 0;
+
+  if (needsFetch) el.innerHTML = loadingHtml();
 
   let meals = _mealsCache;
-  if (!meals || meals.length === 0) {
-    const r = await api("/meals?limit=500");
-    if (r.ok) {
+  if (needsFetch) {
+    try {
+      const r = await api("/meals?limit=500");
+      if (gen !== _reportsRenderGen) return;
+      if (!r.ok) {
+        el.innerHTML = `<p class="report-summary-empty">${escape(t("load_data_failed"))}</p>`;
+        return;
+      }
       meals = await r.json();
+      if (gen !== _reportsRenderGen) return;
       _mealsCache = meals;
-    } else {
-      meals = [];
+    } catch {
+      if (gen !== _reportsRenderGen) return;
+      el.innerHTML = `<p class="report-summary-empty">${escape(t("load_data_failed"))}</p>`;
+      return;
     }
   }
 
@@ -1321,6 +1371,7 @@ async function renderReports() {
   const nutrientSets = getReportNutrientSets();
   const nutrients = nutrientSets[nutrientSet] || nutrientSets.macros;
   const buckets = buildReportBuckets(period);
+  if (gen !== _reportsRenderGen) return;
 
   if (buckets.length === 0) {
     el.innerHTML = `<p class="report-summary-empty">${escape(t("report_empty_range"))}</p>`;
@@ -1345,6 +1396,7 @@ async function renderReports() {
     return;
   }
 
+  if (gen !== _reportsRenderGen) return;
   el.innerHTML = `
     <div class="reports-periods">
       ${buckets.map((b, i) => {

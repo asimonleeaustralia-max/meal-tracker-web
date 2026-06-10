@@ -11,7 +11,6 @@ People tombstones also set deleted_at when is_removed=true via PUT.
 from __future__ import annotations
 
 from alembic import op
-import sqlalchemy as sa
 
 revision = "001_soft_delete"
 down_revision = None
@@ -23,29 +22,22 @@ SCHEMA = "meal"
 
 def upgrade() -> None:
     op.execute(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"')
-    op.add_column(
-        "meals",
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        schema=SCHEMA,
+    op.execute(
+        f"""
+        DO $$ BEGIN
+            ALTER TABLE "{SCHEMA}".meals
+                ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+            CREATE INDEX IF NOT EXISTS ix_meals_deleted_at
+                ON "{SCHEMA}".meals (deleted_at);
+            ALTER TABLE "{SCHEMA}".people
+                ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+            CREATE INDEX IF NOT EXISTS ix_people_deleted_at
+                ON "{SCHEMA}".people (deleted_at);
+        EXCEPTION WHEN undefined_table THEN
+            NULL;
+        END $$;
+        """
     )
-    op.create_index(
-        "ix_meals_deleted_at",
-        "meals",
-        ["deleted_at"],
-        schema=SCHEMA,
-    )
-    op.add_column(
-        "people",
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        schema=SCHEMA,
-    )
-    op.create_index(
-        "ix_people_deleted_at",
-        "people",
-        ["deleted_at"],
-        schema=SCHEMA,
-    )
-    # Backfill deleted_at for people already soft-removed via is_removed.
     op.execute(
         f'UPDATE "{SCHEMA}".people '
         "SET deleted_at = updated_at "

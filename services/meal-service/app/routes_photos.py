@@ -9,21 +9,31 @@ This keeps the API process from streaming megabytes of JPEG data.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mealtracker_shared.schemas import MealPhoto as MealPhotoSchema, MealPhotoCreate
+from mealtracker_shared.schemas import (
+    MealPhoto as MealPhotoSchema,
+    MealPhotoCreate,
+    MealPhotoPatch,
+)
 
 from .config import Settings, get_settings
 from .deps import current_user_id, get_db
 from .models import Meal, MealPhoto
 
 router = APIRouter(prefix="/photos", tags=["photos"])
+
+
+def _photo_metadata(photo: MealPhoto) -> MealPhotoSchema:
+    """Serialize a photo for list/sync responses (no inline image bytes)."""
+    out = MealPhotoSchema.model_validate(photo)
+    out.image_data_b64 = None
+    return out
 
 
 class SasUploadResponse(BaseModel):
@@ -123,6 +133,29 @@ async def request_upload_url(
     )
 
 
+@router.get("", response_model=list[MealPhotoSchema])
+async def list_photos(
+    since: datetime | None = Query(
+        default=None,
+        description="Return photos with updated_at at or after this timestamp (sync).",
+    ),
+    limit: int = Query(default=500, le=2000),
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> list[MealPhotoSchema]:
+    stmt = select(MealPhoto).where(MealPhoto.user_id == user_id)
+    if since is not None:
+        stmt = stmt.where(MealPhoto.updated_at >= since)
+    stmt = (
+        stmt.order_by(MealPhoto.updated_at.asc(), MealPhoto.created_at.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [_photo_metadata(r) for r in rows]
+
+
 @router.get("/by-meal/{meal_id}", response_model=list[MealPhotoSchema])
 async def list_photos_for_meal(
     meal_id: uuid.UUID,
@@ -141,13 +174,74 @@ async def list_photos_for_meal(
         .scalars()
         .all()
     )
-    out = []
-    for r in rows:
-        m = MealPhotoSchema.model_validate(r)
-        # Strip the heavy full image; callers fetch it via GET /photos/{photo_id}
-        m.image_data_b64 = None
-        out.append(m)
-    return out
+    return [_photo_metadata(r) for r in rows]
+
+
+@router.put("/{photo_id}", response_model=MealPhotoSchema)
+async def upsert_photo(
+    photo_id: uuid.UUID,
+    payload: MealPhotoCreate,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> MealPhotoSchema:
+    """Metadata-only upsert by client UUID (no image bytes)."""
+    meal = await db.get(Meal, payload.meal_id)
+    if meal is None or meal.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
+    photo = await db.get(MealPhoto, photo_id)
+    data = payload.model_dump(exclude_unset=False)
+    data.pop("id", None)
+    # PUT is metadata-only; inline bytes use POST /photos/inline
+    data.pop("image_data_b64", None)
+    data.pop("thumb_data_b64", None)
+    now = datetime.now(UTC)
+
+    if photo is None:
+        if not data.get("blob_name"):
+            data["blob_name"] = f"{user_id}/{payload.meal_id}/{photo_id}.jpg"
+        photo = MealPhoto(
+            id=photo_id,
+            user_id=user_id,
+            updated_at=now,
+            **data,
+        )
+        db.add(photo)
+    elif photo.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    else:
+        for key, value in data.items():
+            setattr(photo, key, value)
+        photo.updated_at = now
+
+    await db.flush()
+    await db.refresh(photo)
+    return _photo_metadata(photo)
+
+
+@router.patch("/{photo_id}", response_model=MealPhotoSchema)
+async def confirm_photo_upload(
+    photo_id: uuid.UUID,
+    payload: MealPhotoPatch,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> MealPhotoSchema:
+    """Confirm SAS upload complete or update upload metadata."""
+    photo = await db.get(MealPhoto, photo_id)
+    if photo is None or photo.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    for key, value in updates.items():
+        setattr(photo, key, value)
+    photo.updated_at = datetime.now(UTC)
+
+    await db.flush()
+    await db.refresh(photo)
+    return _photo_metadata(photo)
 
 
 @router.get("/{photo_id}/download-url", response_model=SasDownloadResponse)

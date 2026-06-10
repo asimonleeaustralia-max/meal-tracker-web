@@ -120,28 +120,67 @@ iOS may rely on this or POST its own default person before syncing meals.
 
 Meals reference people via `person_id` on `PUT /api/meals/{id}`.
 
-## `MealPhoto` upload flow
+## `MealPhoto` sync
+
+| Swift (suggested)   | SQL / JSON            | Notes                              |
+|-------------------|-----------------------|------------------------------------|
+| `id`              | `id` (UUID)           | Client-generated                   |
+| `mealId`          | `meal_id`             | Parent meal                        |
+| `width` / `height`| `width` / `height`    |                                    |
+| `sha256`          | `sha256`              | Content hash of upload JPEG        |
+| `byteSizeUpload`  | `byte_size_upload`    |                                    |
+| `displayOrder`    | `display_order`       | Lower = first in meal            |
+| `blobName`        | `blob_name`           | Azure path; set by upload-url      |
+
+Server-managed: `user_id`, `created_at`, `updated_at`.
+
+### Push (upload new photo via SAS)
 
 Photo bytes go **direct to Azure Blob Storage**, not through the API:
 
-1. Client `POST /api/photos/upload-url` with photo metadata
-   (width, height, sha256, byte sizes, the meal it belongs to).
-2. Server creates the `meal_photos` row and returns a one-time SAS URL.
-3. Client `PUT`s the JPEG bytes to that SAS URL directly.
-4. (Optional) Client `PATCH /api/photos/{id}` to confirm upload.
+1. `POST /api/photos/upload-url` with metadata (`meal_id`, width, height,
+   sha256, byte sizes). Server creates the `meal_photos` row, sets
+   `blob_name`, and returns `{ photo_id, blob_name, upload_url, expires_at }`.
+2. Client `PUT`s the JPEG bytes to `upload_url` (Azure SAS).
+3. `PATCH /api/photos/{photo_id}` with optional `byte_size_upload`, `sha256`,
+   `display_order` to confirm upload complete. Server bumps `updated_at`.
 
-To **download** photo bytes later (e.g. sync pull on iOS):
+Optional metadata-only upsert (e.g. reorder or fix fields without re-upload):
 
-1. Client `GET /api/photos/{photo_id}/download-url`
+```
+PUT /api/photos/{client-generated-UUID}
+Content-Type: application/json
+{ "meal_id": "...", "width": 1080, "height": 1080, "display_order": 0, ... }
+```
+
+No image bytes on PUT — use the SAS flow above for JPEG data.
+
+### Pull (incremental metadata)
+
+```
+GET /api/photos?since=2026-05-12T03:14:00Z
+```
+
+Returns all photos for the user where `updated_at >= since`. Responses omit
+`image_data_b64` (metadata only). Each row includes `blob_name` so the client
+knows which blob to fetch.
+
+Store the highest `updated_at` from the response as the next `since` cursor.
+
+### Download photo bytes
+
+After metadata pull, fetch bytes per photo:
+
+1. `GET /api/photos/{photo_id}/download-url`
 2. Server returns `{ "download_url": "...", "expires_at": "..." }` — a
-   short-lived read-only SAS URL for the blob named in `blob_name`.
-3. Client `GET`s the JPEG bytes from `download_url` directly.
+   short-lived read-only SAS URL for `blob_name`.
+3. Client `GET`s the JPEG from `download_url`.
 
-Inline web photos (`image_data_b64`, no `blob_name`) return `404` on this
-endpoint; use `GET /api/photos/{photo_id}` for those instead.
+Inline web photos (`image_data_b64`, no `blob_name`) return `404` on
+download-url; use `GET /api/photos/{photo_id}` for those instead.
 
-The Swift `PhotoStore` already has all the bits it needs (sha256, width,
-height, byte sizes) from the existing `PhotoNutritionGuesser` pipeline.
+The Swift `PhotoStore` already has the metadata fields (sha256, width, height,
+byte sizes) from the existing `PhotoNutritionGuesser` pipeline.
 
 ## Codable hint for the iOS side
 

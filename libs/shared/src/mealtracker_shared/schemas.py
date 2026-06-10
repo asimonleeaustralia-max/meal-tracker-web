@@ -281,6 +281,8 @@ class MealPhotoBase(BaseModel):
     sha256: str | None = None
     latitude: float = 0.0
     longitude: float = 0.0
+    # Azure Blob path (set by upload-url); null for inline web photos
+    blob_name: str | None = None
     # Inline base64-encoded JPEG. Used by the web frontend's "inline" upload path;
     # iOS app continues to use the SAS blob flow and leaves this null.
     image_data_b64: str | None = None
@@ -295,11 +297,22 @@ class MealPhotoCreate(MealPhotoBase):
     meal_id: uuid.UUID
 
 
+class MealPhotoPatch(BaseModel):
+    """Payload for PATCH /photos/{id} — confirm SAS upload or tweak metadata."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    byte_size_upload: int | None = None
+    sha256: str | None = None
+    display_order: int | None = None
+
+
 class MealPhoto(MealPhotoBase):
     id: uuid.UUID
     meal_id: uuid.UUID
     user_id: uuid.UUID
     created_at: datetime
+    updated_at: datetime
 
 
 # -------------------- Vision (RunPod) --------------------

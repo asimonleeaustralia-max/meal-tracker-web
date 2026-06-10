@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
@@ -35,11 +36,13 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     display_name: str | None = None
+    client: Literal["web", "ios"] = "web"
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    client: Literal["web", "ios"] = "web"
 
 
 class RefreshRequest(BaseModel):
@@ -144,7 +147,9 @@ async def signup(
     )
     db.add(user)
     await db.flush()
-    return await _issue_pair(user, settings, db, login_method="local", request=request)
+    return await _issue_pair(
+        user, settings, db, login_method="local", request=request, client=payload.client
+    )
 
 
 @router.post("/login", response_model=TokenPair)
@@ -177,7 +182,9 @@ async def login(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User disabled")
 
     await clear_login_attempts(db, email=payload.email, ip_address=ip)
-    return await _issue_pair(user, settings, db, login_method="local", request=request)
+    return await _issue_pair(
+        user, settings, db, login_method="local", request=request, client=payload.client
+    )
 
 
 @router.post("/forgot-password")

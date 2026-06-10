@@ -50,6 +50,8 @@ _PUBLIC_PREFIXES = (
     "/api/auth/signup",
     "/api/auth/login",
     "/api/auth/refresh",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
     "/api/auth/oauth",  # browser OAuth start/callback
 )
 

@@ -263,6 +263,7 @@ class Person(PersonBase):
     id: uuid.UUID
     user_id: uuid.UUID
     created_at: datetime
+    updated_at: datetime
 
 
 # -------------------- MealPhoto (mirrors iOS Core Data `MealPhoto`) --------------------

@@ -62,6 +62,47 @@ Use a simple **last-write-wins, incremental pull** model:
 For a more robust model later (concurrent edits on multiple devices),
 consider adding a `version` integer that clients must include in PUTs.
 
+## `Person` sync
+
+`Person` uses the same incremental pull + PUT-by-UUID push model as `Meal`.
+
+| Swift            | SQL / JSON            |
+|------------------|-----------------------|
+| `id`             | `id` (UUID)           |
+| `name`           | `name`                |
+| `isDefault`      | `is_default`          |
+| `isRemoved`      | `is_removed`          |
+
+Server-managed: `user_id`, `created_at`, `updated_at`.
+
+### Pull
+
+```
+GET /api/people?since=2026-05-12T03:14:00Z
+```
+
+When `since` is set, the response includes **removed** people with
+`is_removed: true` so tombstones propagate to other devices. A plain
+`GET /api/people` (no `since`) hides removed people — same as before.
+
+### Push
+
+```
+PUT /api/people/{client-generated-UUID}
+Content-Type: application/json
+{ "name": "Simon", "is_default": true, "is_removed": false }
+```
+
+The server upserts by ID. To soft-delete, PUT with `is_removed: true`.
+
+### First-login bootstrap
+
+If a user has no people at all, `GET /api/people` (without `since`)
+auto-creates a default person named **"Me"** with `is_default: true`.
+iOS may rely on this or POST its own default person before syncing meals.
+
+Meals reference people via `person_id` on `PUT /api/meals/{id}`.
+
 ## `MealPhoto` upload flow
 
 Photo bytes go **direct to Azure Blob Storage**, not through the API:

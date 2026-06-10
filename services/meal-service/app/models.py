@@ -50,6 +50,7 @@ class Person(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+        index=True,
     )
 
 

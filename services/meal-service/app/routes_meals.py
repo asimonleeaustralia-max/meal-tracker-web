@@ -73,19 +73,25 @@ async def get_meal(
 
 
 @router.put("/{meal_id}", response_model=MealSchema)
-async def replace_meal(
+async def upsert_meal(
     meal_id: uuid.UUID,
     payload: MealCreate,
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(current_user_id),
 ) -> MealSchema:
     meal = await db.get(Meal, meal_id)
-    if meal is None or meal.user_id != user_id:
+    data = payload.model_dump(exclude_unset=False)
+    if meal is None:
+        data.pop("id", None)
+        meal = Meal(id=meal_id, user_id=user_id, **data)
+        db.add(meal)
+    elif meal.user_id != user_id:
         raise HTTPException(status_code=404, detail="Meal not found")
-    for key, value in payload.model_dump(exclude_unset=False).items():
-        if key == "id":
-            continue
-        setattr(meal, key, value)
+    else:
+        for key, value in data.items():
+            if key == "id":
+                continue
+            setattr(meal, key, value)
     await db.flush()
     await db.refresh(meal)
     return MealSchema.model_validate(meal)
@@ -108,22 +114,41 @@ async def delete_meal(
 people_router = APIRouter(prefix="/people", tags=["people"])
 
 
+async def _ensure_default_person(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Create a default 'Me' person when the user has none (first-login bootstrap)."""
+    count = (
+        await db.execute(
+            select(Person.id).where(Person.user_id == user_id).limit(1)
+        )
+    ).scalar_one_or_none()
+    if count is not None:
+        return
+    person = Person(user_id=user_id, name="Me", is_default=True, is_removed=False)
+    db.add(person)
+    await db.flush()
+
+
 @people_router.get("", response_model=list[PersonSchema])
 async def list_people(
+    since: datetime | None = Query(
+        default=None,
+        description=(
+            "If provided, return people updated at or after this timestamp (sync). "
+            "Includes removed people as tombstones (is_removed=true)."
+        ),
+    ),
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(current_user_id),
 ) -> list[PersonSchema]:
-    rows = (
-        (
-            await db.execute(
-                select(Person)
-                .where(Person.user_id == user_id, Person.is_removed.is_(False))
-                .order_by(Person.is_default.desc(), Person.name)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    if since is None:
+        await _ensure_default_person(db, user_id)
+    stmt = select(Person).where(Person.user_id == user_id)
+    if since is not None:
+        stmt = stmt.where(Person.updated_at >= since)
+    else:
+        stmt = stmt.where(Person.is_removed.is_(False))
+    stmt = stmt.order_by(Person.is_default.desc(), Person.name)
+    rows = (await db.execute(stmt)).scalars().all()
     return [PersonSchema.model_validate(r) for r in rows]
 
 
@@ -138,6 +163,31 @@ async def create_person(
         data.pop("id", None)
     person = Person(user_id=user_id, **data)
     db.add(person)
+    await db.flush()
+    await db.refresh(person)
+    return PersonSchema.model_validate(person)
+
+
+@people_router.put("/{person_id}", response_model=PersonSchema)
+async def upsert_person(
+    person_id: uuid.UUID,
+    payload: PersonCreate,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> PersonSchema:
+    person = await db.get(Person, person_id)
+    data = payload.model_dump(exclude_unset=False)
+    if person is None:
+        data.pop("id", None)
+        person = Person(id=person_id, user_id=user_id, **data)
+        db.add(person)
+    elif person.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Person not found")
+    else:
+        for key, value in data.items():
+            if key == "id":
+                continue
+            setattr(person, key, value)
     await db.flush()
     await db.refresh(person)
     return PersonSchema.model_validate(person)

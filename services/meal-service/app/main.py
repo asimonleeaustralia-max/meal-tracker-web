@@ -11,6 +11,7 @@ from .config import get_settings
 from .deps import init_db
 from .routes_meals import people_router, router as meals_router
 from .routes_photos import router as photos_router
+from .routes_sync import router as sync_router
 
 
 @asynccontextmanager
@@ -45,7 +46,7 @@ async def lifespan(app: FastAPI):
                 f'ALTER TABLE "{settings.db_schema}".meal_photos '
                 'ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()'
             )
-        # Soft-delete tombstones (sync); idempotent for prod where Alembic may lag.
+        # Soft-delete tombstones + photo sync cursor; idempotent for prod where Alembic may lag.
         for schema in (settings.db_schema, "public"):
             for table in ("meals", "people"):
                 await conn.exec_driver_sql(
@@ -58,6 +59,16 @@ async def lifespan(app: FastAPI):
                     END $$;
                     """
                 )
+            await conn.exec_driver_sql(
+                f"""
+                DO $$ BEGIN
+                    ALTER TABLE "{schema}".meal_photos
+                        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+                EXCEPTION WHEN undefined_table THEN
+                    NULL;
+                END $$;
+                """
+            )
 
     init_db(db)
     yield
@@ -70,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(meals_router)
     app.include_router(people_router)
     app.include_router(photos_router)
+    app.include_router(sync_router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:

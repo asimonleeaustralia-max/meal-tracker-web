@@ -315,6 +315,15 @@ class MealPhoto(MealPhotoBase):
     updated_at: datetime
 
 
+class SyncChangesResponse(BaseModel):
+    """Incremental pull bundle for iOS — one round-trip for all entity types."""
+
+    meals: list[Meal]
+    people: list[Person]
+    photos: list[MealPhoto]
+    server_time: datetime
+
+
 # -------------------- Vision (RunPod) --------------------
 
 class VisionPrediction(BaseModel):

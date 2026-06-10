@@ -48,20 +48,26 @@ Plus extra server-managed columns the iOS app shouldn't try to set:
 Use a simple **last-write-wins, incremental pull** model:
 
 1. Client stores the most recent `updated_at` it has seen.
-2. To pull changes:
+2. To pull **all** entity types in one round-trip (preferred on iOS):
+   ```
+   GET /api/sync/changes?since=2026-05-12T03:14:00Z
+   ```
+   Returns `{ "meals": [...], "people": [...], "photos": [...], "server_time": "..." }`.
+   Use `server_time` as the next cursor after applying changes locally.
+3. Or pull per entity (three requests):
    ```
    GET /api/meals?since=2026-05-12T03:14:00Z&limit=200
    ```
    Returns rows where `updated_at >= since` **or** `deleted_at >= since`.
    Soft-deleted meals appear with `deleted_at` set; apply the tombstone locally
    and remove the meal from the device store.
-3. To delete (web or any client):
+4. To delete (web or any client):
    ```
    DELETE /api/meals/{client-generated-UUID}
    ```
    Soft-delete only: the row stays in the database with `deleted_at` set to
    now. A plain `GET /api/meals` (no `since`) hides deleted meals.
-4. To push a change (create or update):
+5. To push a change (create or update):
    ```
    PUT /api/meals/{client-generated-UUID}
    Content-Type: application/json
@@ -69,7 +75,7 @@ Use a simple **last-write-wins, incremental pull** model:
    ```
    The server treats `PUT` as an upsert by ID. Use the same UUID Core Data
    already assigned so reconciliation is trivial.
-5. After a successful push, mark the Meal as synced locally by setting
+6. After a successful push, mark the Meal as synced locally by setting
    `lastSyncGUID` to the value the server returns.
 
 `PUT /api/meals/{id}` on a previously deleted meal clears `deleted_at` (restore).

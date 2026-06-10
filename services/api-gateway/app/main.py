@@ -6,6 +6,7 @@ Public entry point. Maps URL prefixes to internal services:
     /api/meals/*      → meal-service
     /api/people/*     → meal-service
     /api/photos/*     → meal-service
+    /api/sync/*       → meal-service
     /api/nutrition/*  → nutrition-service
     /api/vision/*     → vision-service
 
@@ -41,6 +42,7 @@ _ROUTES: list[tuple[str, str]] = [
     ("/api/meals",     "meal_service_url"),
     ("/api/people",    "meal_service_url"),
     ("/api/photos",    "meal_service_url"),
+    ("/api/sync",      "meal_service_url"),
     ("/api/nutrition", "nutrition_service_url"),
     ("/api/vision",    "vision_service_url"),
 ]

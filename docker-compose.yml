@@ -53,6 +53,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      BLOB_ACCOUNT_URL: ${BLOB_ACCOUNT_URL:-}
+      BLOB_ACCOUNT_KEY: ${BLOB_ACCOUNT_KEY:-}
     ports:
       - "8001:8001"
     depends_on:

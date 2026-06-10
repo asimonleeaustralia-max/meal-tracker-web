@@ -11,6 +11,7 @@ from mealtracker_shared.logging import configure_logging
 
 from .config import get_settings
 from .deps import init_db
+from .routes_account import router as account_router
 from .routes_activity import router as activity_router
 from .routes_admin import router as admin_router
 from .routes_local import router as local_router
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
 
     app.include_router(local_router)
+    app.include_router(account_router)
     app.include_router(oauth_router)
     app.include_router(activity_router)
     app.include_router(admin_router)

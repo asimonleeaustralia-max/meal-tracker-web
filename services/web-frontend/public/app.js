@@ -1859,6 +1859,29 @@ function initSettings() {
   if (verEl) {
     loadAppVersion().then((v) => { verEl.textContent = v; });
   }
+  const deleteBtn = document.getElementById("delete-account-btn");
+  if (deleteBtn && !deleteBtn.dataset.bound) {
+    deleteBtn.dataset.bound = "1";
+    deleteBtn.onclick = deleteAccount;
+  }
+}
+
+async function deleteAccount() {
+  if (!confirm(t("delete_account_confirm"))) return;
+  const btn = document.getElementById("delete-account-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const resp = await api("/auth/account", { method: "DELETE" });
+    if (!resp.ok) throw new Error(await niceError(resp));
+    Activity.stopHeartbeat();
+    _currentUser = null;
+    _isAdmin = false;
+    tokens.clear();
+    render();
+  } catch (err) {
+    alert(err.message || t("delete_account_error"));
+    if (btn) btn.disabled = false;
+  }
 }
 
 function refreshUIAfterLanguageChange() {

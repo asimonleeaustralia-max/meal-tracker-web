@@ -33,8 +33,18 @@ class SasUploadResponse(BaseModel):
     expires_at: datetime
 
 
-def _generate_sas_url(blob_name: str, settings: Settings) -> tuple[str, datetime]:
-    """Mint a write-only SAS URL for a single blob."""
+class SasDownloadResponse(BaseModel):
+    download_url: str
+    expires_at: datetime
+
+
+def _generate_sas_url(
+    blob_name: str,
+    settings: Settings,
+    *,
+    read_only: bool = False,
+) -> tuple[str, datetime]:
+    """Mint a SAS URL for a single blob (write for upload, read for download)."""
     if not settings.blob_account_url:
         # Dev mode: return a fake URL so the contract is exercised without Azure
         expires = datetime.now(timezone.utc) + timedelta(minutes=settings.blob_sas_ttl_minutes)
@@ -50,12 +60,17 @@ def _generate_sas_url(blob_name: str, settings: Settings) -> tuple[str, datetime
     account_name = settings.blob_account_url.split("//", 1)[1].split(".", 1)[0]
 
     if settings.blob_account_key:
+        permission = (
+            BlobSasPermissions(read=True)
+            if read_only
+            else BlobSasPermissions(write=True, create=True)
+        )
         sas = generate_blob_sas(
             account_name=account_name,
             container_name=settings.blob_container,
             blob_name=blob_name,
             account_key=settings.blob_account_key,
-            permission=BlobSasPermissions(write=True, create=True),
+            permission=permission,
             expiry=expires,
         )
         url = f"{settings.blob_account_url}/{settings.blob_container}/{blob_name}?{sas}"
@@ -133,6 +148,27 @@ async def list_photos_for_meal(
         m.image_data_b64 = None
         out.append(m)
     return out
+
+
+@router.get("/{photo_id}/download-url", response_model=SasDownloadResponse)
+async def get_photo_download_url(
+    photo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+    settings: Settings = Depends(get_settings),
+) -> SasDownloadResponse:
+    """Return a short-lived read SAS URL for the photo bytes in blob storage."""
+    photo = await db.get(MealPhoto, photo_id)
+    if photo is None or photo.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    if not photo.blob_name:
+        raise HTTPException(
+            status_code=404,
+            detail="Photo has no blob storage (inline web photo)",
+        )
+
+    url, expires = _generate_sas_url(photo.blob_name, settings, read_only=True)
+    return SasDownloadResponse(download_url=url, expires_at=expires)
 
 
 @router.get("/{photo_id}", response_model=MealPhotoSchema)

@@ -72,6 +72,16 @@ Photo bytes go **direct to Azure Blob Storage**, not through the API:
 3. Client `PUT`s the JPEG bytes to that SAS URL directly.
 4. (Optional) Client `PATCH /api/photos/{id}` to confirm upload.
 
+To **download** photo bytes later (e.g. sync pull on iOS):
+
+1. Client `GET /api/photos/{photo_id}/download-url`
+2. Server returns `{ "download_url": "...", "expires_at": "..." }` — a
+   short-lived read-only SAS URL for the blob named in `blob_name`.
+3. Client `GET`s the JPEG bytes from `download_url` directly.
+
+Inline web photos (`image_data_b64`, no `blob_name`) return `404` on this
+endpoint; use `GET /api/photos/{photo_id}` for those instead.
+
 The Swift `PhotoStore` already has all the bits it needs (sha256, width,
 height, byte sizes) from the existing `PhotoNutritionGuesser` pipeline.
 

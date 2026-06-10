@@ -46,6 +46,11 @@ class Settings(BaseServiceSettings):
     password_reset_base_url: str = "http://localhost:3000"
     password_reset_max_requests_per_hour: int = 3
 
+    # --- Photo storage (for account-deletion blob cleanup) ---
+    blob_account_url: str = ""
+    blob_container: str = "meal-photos"
+    blob_account_key: str = ""
+
     # SMTP (optional — reset links are logged when unset)
     smtp_host: str = ""
     smtp_port: int = 587

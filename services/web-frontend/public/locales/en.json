@@ -199,5 +199,9 @@
   "nutrient_calcium": "Calcium",
   "nutrient_iron": "Iron",
   "nutrient_potassium": "Potassium",
-  "nutrient_magnesium": "Magnesium"
+  "nutrient_magnesium": "Magnesium",
+  "delete_account": "Delete account",
+  "delete_account_hint": "Permanently delete your account and all meals, photos, and sync data. This cannot be undone.",
+  "delete_account_confirm": "Delete your account permanently? All meals, photos, and sync data will be lost. This cannot be undone.",
+  "delete_account_error": "Could not delete your account. Please try again."
 }

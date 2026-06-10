@@ -37,7 +37,11 @@ snake_case. Every `*IsGuess` boolean has a `*_is_guess` column.
 | `productName`       | `product_name`           |
 
 Plus extra server-managed columns the iOS app shouldn't try to set:
-`user_id`, `created_at`, `updated_at`.
+`user_id`, `created_at`, `updated_at`, `deleted_at`.
+
+| Swift (suggested) | SQL / JSON   | Notes                          |
+|-----------------|--------------|--------------------------------|
+| `deletedAt`     | `deleted_at` | `null` = active; set = tombstone |
 
 ## Sync protocol (recommended)
 
@@ -48,7 +52,16 @@ Use a simple **last-write-wins, incremental pull** model:
    ```
    GET /api/meals?since=2026-05-12T03:14:00Z&limit=200
    ```
-3. To push a change (create or update):
+   Returns rows where `updated_at >= since` **or** `deleted_at >= since`.
+   Soft-deleted meals appear with `deleted_at` set; apply the tombstone locally
+   and remove the meal from the device store.
+3. To delete (web or any client):
+   ```
+   DELETE /api/meals/{client-generated-UUID}
+   ```
+   Soft-delete only: the row stays in the database with `deleted_at` set to
+   now. A plain `GET /api/meals` (no `since`) hides deleted meals.
+4. To push a change (create or update):
    ```
    PUT /api/meals/{client-generated-UUID}
    Content-Type: application/json
@@ -56,8 +69,10 @@ Use a simple **last-write-wins, incremental pull** model:
    ```
    The server treats `PUT` as an upsert by ID. Use the same UUID Core Data
    already assigned so reconciliation is trivial.
-4. After a successful push, mark the Meal as synced locally by setting
+5. After a successful push, mark the Meal as synced locally by setting
    `lastSyncGUID` to the value the server returns.
+
+`PUT /api/meals/{id}` on a previously deleted meal clears `deleted_at` (restore).
 
 For a more robust model later (concurrent edits on multiple devices),
 consider adding a `version` integer that clients must include in PUTs.
@@ -73,7 +88,7 @@ consider adding a `version` integer that clients must include in PUTs.
 | `isDefault`      | `is_default`          |
 | `isRemoved`      | `is_removed`          |
 
-Server-managed: `user_id`, `created_at`, `updated_at`.
+Server-managed: `user_id`, `created_at`, `updated_at`, `deleted_at`.
 
 ### Pull
 
@@ -81,9 +96,10 @@ Server-managed: `user_id`, `created_at`, `updated_at`.
 GET /api/people?since=2026-05-12T03:14:00Z
 ```
 
-When `since` is set, the response includes **removed** people with
-`is_removed: true` so tombstones propagate to other devices. A plain
-`GET /api/people` (no `since`) hides removed people — same as before.
+When `since` is set, the response includes rows where `updated_at >= since`
+**or** `deleted_at >= since`. Removed people have `is_removed: true` and
+`deleted_at` set so tombstones propagate to other devices. A plain
+`GET /api/people` (no `since`) hides removed people.
 
 ### Push
 
@@ -93,7 +109,8 @@ Content-Type: application/json
 { "name": "Simon", "is_default": true, "is_removed": false }
 ```
 
-The server upserts by ID. To soft-delete, PUT with `is_removed: true`.
+The server upserts by ID. To soft-delete, PUT with `is_removed: true`; the
+server also sets `deleted_at` for sync tombstones.
 
 ### First-login bootstrap
 

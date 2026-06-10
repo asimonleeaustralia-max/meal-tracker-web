@@ -244,6 +244,7 @@ class Meal(MealBase):
     last_sync_guid: str | None = None
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None = None
 
 
 # -------------------- Person (mirrors iOS Core Data `Person`) --------------------
@@ -264,6 +265,7 @@ class Person(PersonBase):
     user_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None = None
 
 
 # -------------------- MealPhoto (mirrors iOS Core Data `MealPhoto`) --------------------

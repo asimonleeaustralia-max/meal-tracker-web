@@ -52,6 +52,9 @@ class Person(Base):
         nullable=False,
         index=True,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
 
 
 class Meal(Base):
@@ -180,6 +183,9 @@ class Meal(Base):
         onupdate=func.now(),
         nullable=False,
         index=True,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
     )
 
     photos: Mapped[list["MealPhoto"]] = relationship(

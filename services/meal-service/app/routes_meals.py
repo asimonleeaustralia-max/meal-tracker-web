@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mealtracker_shared.schemas import (
@@ -30,14 +30,21 @@ async def list_meals(
     offset: int = 0,
     since: datetime | None = Query(
         default=None,
-        description="If provided, only return meals updated at or after this timestamp (sync).",
+        description=(
+            "If provided, return meals updated or deleted at or after this timestamp (sync). "
+            "Includes soft-deleted meals as tombstones (deleted_at set)."
+        ),
     ),
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(current_user_id),
 ) -> list[MealSchema]:
     stmt = select(Meal).where(Meal.user_id == user_id)
     if since is not None:
-        stmt = stmt.where(Meal.updated_at >= since)
+        stmt = stmt.where(
+            or_(Meal.updated_at >= since, Meal.deleted_at >= since)
+        )
+    else:
+        stmt = stmt.where(Meal.deleted_at.is_(None))
     stmt = stmt.order_by(Meal.date.desc()).limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     return [MealSchema.model_validate(r) for r in rows]
@@ -67,7 +74,7 @@ async def get_meal(
     user_id: uuid.UUID = Depends(current_user_id),
 ) -> MealSchema:
     meal = await db.get(Meal, meal_id)
-    if meal is None or meal.user_id != user_id:
+    if meal is None or meal.user_id != user_id or meal.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Meal not found")
     return MealSchema.model_validate(meal)
 
@@ -92,6 +99,7 @@ async def upsert_meal(
             if key == "id":
                 continue
             setattr(meal, key, value)
+        meal.deleted_at = None
     await db.flush()
     await db.refresh(meal)
     return MealSchema.model_validate(meal)
@@ -106,7 +114,8 @@ async def delete_meal(
     meal = await db.get(Meal, meal_id)
     if meal is None or meal.user_id != user_id:
         raise HTTPException(status_code=404, detail="Meal not found")
-    await db.delete(meal)
+    if meal.deleted_at is None:
+        meal.deleted_at = datetime.now(UTC)
 
 
 # ----------------------------- People -----------------------------
@@ -133,8 +142,8 @@ async def list_people(
     since: datetime | None = Query(
         default=None,
         description=(
-            "If provided, return people updated at or after this timestamp (sync). "
-            "Includes removed people as tombstones (is_removed=true)."
+            "If provided, return people updated or deleted at or after this timestamp (sync). "
+            "Includes removed people as tombstones (is_removed=true, deleted_at set)."
         ),
     ),
     db: AsyncSession = Depends(get_db),
@@ -144,9 +153,13 @@ async def list_people(
         await _ensure_default_person(db, user_id)
     stmt = select(Person).where(Person.user_id == user_id)
     if since is not None:
-        stmt = stmt.where(Person.updated_at >= since)
+        stmt = stmt.where(
+            or_(Person.updated_at >= since, Person.deleted_at >= since)
+        )
     else:
-        stmt = stmt.where(Person.is_removed.is_(False))
+        stmt = stmt.where(
+            Person.is_removed.is_(False), Person.deleted_at.is_(None)
+        )
     stmt = stmt.order_by(Person.is_default.desc(), Person.name)
     rows = (await db.execute(stmt)).scalars().all()
     return [PersonSchema.model_validate(r) for r in rows]
@@ -180,6 +193,8 @@ async def upsert_person(
     if person is None:
         data.pop("id", None)
         person = Person(id=person_id, user_id=user_id, **data)
+        if person.is_removed:
+            person.deleted_at = datetime.now(UTC)
         db.add(person)
     elif person.user_id != user_id:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -188,6 +203,10 @@ async def upsert_person(
             if key == "id":
                 continue
             setattr(person, key, value)
+    if person.is_removed and person.deleted_at is None:
+        person.deleted_at = datetime.now(UTC)
+    elif not person.is_removed:
+        person.deleted_at = None
     await db.flush()
     await db.refresh(person)
     return PersonSchema.model_validate(person)

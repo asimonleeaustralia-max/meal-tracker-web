@@ -24,8 +24,8 @@ async def lifespan(app: FastAPI):
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
     )
-    if settings.environment == "development":
-        async with db.engine.begin() as conn:
+    async with db.engine.begin() as conn:
+        if settings.environment == "development":
             await conn.exec_driver_sql(f'CREATE SCHEMA IF NOT EXISTS "{settings.db_schema}"')
             await conn.run_sync(Base.metadata.create_all)
             # Idempotent column adds for inline-photo storage (introduced after initial schema)
@@ -41,6 +41,19 @@ async def lifespan(app: FastAPI):
                 f'ALTER TABLE "{settings.db_schema}".meal_photos '
                 'ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0'
             )
+        # Soft-delete tombstones (sync); idempotent for prod where Alembic may lag.
+        for schema in (settings.db_schema, "public"):
+            for table in ("meals", "people"):
+                await conn.exec_driver_sql(
+                    f"""
+                    DO $$ BEGIN
+                        ALTER TABLE "{schema}".{table}
+                            ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+                    EXCEPTION WHEN undefined_table THEN
+                        NULL;
+                    END $$;
+                    """
+                )
 
     init_db(db)
     yield

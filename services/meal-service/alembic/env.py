@@ -5,7 +5,7 @@ import asyncio
 import os
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -35,7 +35,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    connection.execute(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"')
+    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -47,8 +47,13 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    configuration = config.get_section(config.config_ini_section, {})
+    if SCHEMA:
+        configuration["sqlalchemy.connect_args"] = {
+            "server_settings": {"search_path": f"{SCHEMA},public"}
+        }
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

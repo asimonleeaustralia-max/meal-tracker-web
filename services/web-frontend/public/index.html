@@ -116,10 +116,10 @@
           </div>
           <div id="photo-strip" class="photo-strip" hidden></div>
           <form id="add-meal-form">
-          <label class="form-field">
-            <span class="label-row"><span data-i18n="title">Title</span></span>
-            <input type="text" name="title" data-i18n-placeholder="title_placeholder" placeholder="e.g. Lunch — chicken salad" required>
-          </label>
+          <div class="form-field">
+            <label class="field-label required" for="meal-title-input" data-i18n="title">Title</label>
+            <input type="text" id="meal-title-input" name="title" data-i18n-placeholder="title_placeholder" placeholder="e.g. Lunch — chicken salad" required>
+          </div>
 
           <div class="datetime-picker" id="meal-datetime">
             <span class="label-row form-label"><span data-i18n="date_time">Date &amp; time</span></span>

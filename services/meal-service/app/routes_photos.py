@@ -232,7 +232,8 @@ async def confirm_photo_upload(
         raise HTTPException(status_code=404, detail="Photo not found")
 
     updates = payload.model_dump(exclude_unset=True)
-    if not updates:
+    upload_confirmed = updates.pop("upload_confirmed", None)
+    if not updates and not upload_confirmed:
         raise HTTPException(status_code=400, detail="No fields to update")
 
     for key, value in updates.items():

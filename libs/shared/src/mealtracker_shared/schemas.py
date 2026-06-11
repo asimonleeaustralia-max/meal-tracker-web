@@ -302,6 +302,7 @@ class MealPhotoPatch(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    upload_confirmed: bool | None = None
     byte_size_upload: int | None = None
     sha256: str | None = None
     display_order: int | None = None

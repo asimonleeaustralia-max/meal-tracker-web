@@ -88,4 +88,47 @@ echo "$PULL" | jq -e --arg pid "$PERSON_ID" --arg id "$MEAL_ID" \
   '[.[] | select(.id == $id)] | .[0].person_id == $pid' >/dev/null \
   || fail "pulled meal person_id mismatch"
 
+echo "==> POST /api/photos/upload-url (SAS upload flow)"
+UPLOAD=$(curl -sf -X POST "${BASE_URL}/api/photos/upload-url" \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${AT}" \
+  -d "{\"meal_id\":\"${MEAL_ID}\",\"width\":1080,\"height\":1080,\"byte_size_upload\":12345,\"sha256\":\"abc123\"}") \
+  || fail "POST /api/photos/upload-url failed"
+PHOTO_ID=$(echo "$UPLOAD" | jq -r '.photo_id // empty')
+[[ -n "$PHOTO_ID" ]] || fail "upload-url response missing photo_id"
+echo "$UPLOAD" | jq -e '.upload_url != null and .blob_name != null' >/dev/null \
+  || fail "upload-url response missing upload_url or blob_name"
+echo "OK: photo_id=${PHOTO_ID}"
+
+echo "==> PATCH /api/photos/${PHOTO_ID} (upload_confirmed)"
+PATCH_PHOTO=$(curl -sf -X PATCH "${BASE_URL}/api/photos/${PHOTO_ID}" \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${AT}" \
+  -d '{"upload_confirmed":true}') \
+  || fail "PATCH /api/photos (confirm) failed"
+echo "$PATCH_PHOTO" | jq -e '.updated_at != null' >/dev/null \
+  || fail "patch photo response missing updated_at"
+echo "$PATCH_PHOTO" | jq -e '.image_data_b64 == null' >/dev/null \
+  || fail "patch photo response should omit image_data_b64"
+
+echo "==> GET /api/photos?since=${SINCE}"
+PULL_PHOTOS=$(curl -sf "${BASE_URL}/api/photos?since=${SINCE}" \
+  -H "Authorization: Bearer ${AT}") \
+  || fail "GET /api/photos?since= failed"
+FOUND_PHOTO=$(echo "$PULL_PHOTOS" | jq --arg id "$PHOTO_ID" '[.[] | select(.id == $id)] | length')
+[[ "$FOUND_PHOTO" -ge 1 ]] || fail "confirmed photo not in incremental photos pull"
+echo "$PULL_PHOTOS" | jq -e --arg id "$PHOTO_ID" \
+  '[.[] | select(.id == $id)] | .[0].blob_name != null' >/dev/null \
+  || fail "pulled photo missing blob_name"
+echo "$PULL_PHOTOS" | jq -e --arg id "$PHOTO_ID" \
+  '[.[] | select(.id == $id)] | .[0].image_data_b64 == null' >/dev/null \
+  || fail "photos pull should omit image_data_b64"
+
+echo "==> GET /api/photos/${PHOTO_ID}/download-url"
+DOWNLOAD=$(curl -sf "${BASE_URL}/api/photos/${PHOTO_ID}/download-url" \
+  -H "Authorization: Bearer ${AT}") \
+  || fail "GET /api/photos/download-url failed"
+echo "$DOWNLOAD" | jq -e '.download_url != null and .expires_at != null' >/dev/null \
+  || fail "download-url response missing download_url or expires_at"
+
 echo "PASS"

@@ -233,7 +233,10 @@ button.ghost {
   margin-top: 16px;
 }
 .oauth-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -241,6 +244,14 @@ button.ghost {
   text-decoration: none;
   color: var(--fg);
   background: var(--card);
+}
+.oauth-btn .oauth-btn__icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  max-width: 16px;
+  max-height: 16px;
+  flex-shrink: 0;
 }
 .oauth-btn.apple { border-left: 4px solid #000; }
 pre {

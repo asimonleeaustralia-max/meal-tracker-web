@@ -64,9 +64,8 @@ def _configure_clients(settings: Settings) -> None:
     a = _oauth.create_client("apple")
     if a is not None:
         a.client_id = settings.apple_client_id
-        # Apple uses a JWT client secret generated from a P8 private key.
-        # See `app/apple_client_secret.py` for the generator.
-        a.client_secret = None  # set dynamically per-request in the login flow
+        # Apple web OAuth uses a JWT client secret — set per-request in login/callback.
+        a.client_secret = None
 
     f = _oauth.create_client("facebook")
     if f is not None:
@@ -128,13 +127,25 @@ async def _find_or_create_user_from_oauth(
 
 # ----------------------------- Browser redirect flow -----------------------------
 
+def _prepare_oauth_client(provider: str, settings: Settings):
+    """Return an Authlib client with provider-specific secrets applied."""
+    client = _oauth.create_client(provider)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+    if provider == "apple":
+        from .apple_client_secret import generate_apple_client_secret
+
+        client.client_secret = generate_apple_client_secret(settings)
+    return client
+
+
 @router.get("/{provider}/login")
 async def oauth_login(
     provider: str, request: Request, settings: Settings = Depends(get_settings)
 ) -> RedirectResponse:
     if provider not in {"google", "apple", "facebook"}:
         raise HTTPException(status_code=404, detail="Unknown provider")
-    client = _oauth.create_client(provider)
+    client = _prepare_oauth_client(provider, settings)
     redirect_uri = {
         "google": settings.google_redirect_uri,
         "apple": settings.apple_redirect_uri,
@@ -153,7 +164,7 @@ async def oauth_callback(
 ) -> RedirectResponse:
     if provider not in {"google", "apple", "facebook"}:
         raise HTTPException(status_code=404, detail="Unknown provider")
-    client = _oauth.create_client(provider)
+    client = _prepare_oauth_client(provider, settings)
     try:
         token = await client.authorize_access_token(request)
     except OAuthError as e:
@@ -205,7 +216,7 @@ async def oauth_callback(
         display_name=display_name,
     )
     pair = await _issue_pair(
-        user, settings, db, login_method=provider, request=request
+        user, settings, db, login_method=provider, request=request, client="web"
     )
     # Hand tokens to the SPA via URL fragment (so they don't hit server logs)
     frag = (

@@ -49,8 +49,11 @@ def _audience_for(provider: str, settings: Settings) -> str | list[str]:
         # you have separate ones.
         return settings.google_client_id
     if provider == "apple":
-        # Apple audience is the iOS bundle ID (or Services ID for web)
-        return settings.apple_client_id
+        # Native iOS tokens use the bundle ID; web tokens use the Services ID.
+        ids = [x for x in (settings.apple_ios_client_id, settings.apple_client_id) if x]
+        if not ids:
+            return ""
+        return ids[0] if len(ids) == 1 else ids
     if provider == "facebook":
         return settings.facebook_client_id
     raise HTTPException(status_code=404, detail="Unknown provider")

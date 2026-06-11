@@ -10,11 +10,16 @@
     "googleClientId":    { "value": "" },
     "googleClientSecret":{ "value": "" },
     "appleClientId":     { "value": "" },
+    "appleIosClientId":  { "value": "" },
+    "appleTeamId":       { "value": "" },
+    "appleKeyId":        { "value": "" },
     "applePrivateKey":   { "value": "" },
     "facebookClientId":  { "value": "" },
     "facebookClientSecret":{ "value": "" },
     "runpodEndpointUrl": { "value": "" },
     "runpodApiKey":      { "value": "" },
-    "passwordResetBaseUrl": { "value": "https://macrossimple.com" }
+    "passwordResetBaseUrl": { "value": "https://macrossimple.com" },
+    "customWebHostname":    { "value": "macrossimple.com" },
+    "customApiHostname":    { "value": "api.macrossimple.com" }
   }
 }

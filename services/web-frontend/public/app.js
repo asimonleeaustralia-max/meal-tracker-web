@@ -129,15 +129,33 @@ function applyReportPrefs(prefs) {
   if (toWrap) toWrap.hidden = !custom;
 }
 
-// ---- OAuth fragment handling ----
+// ---- OAuth fragment handling (/auth/success#... or legacy /#...) ----
 (function handleOAuthFragment() {
-  if (!location.hash) return;
-  const frag = new URLSearchParams(location.hash.slice(1));
+  const hash = location.hash;
+  if (!hash) return;
+  const frag = new URLSearchParams(hash.slice(1));
   const at = frag.get("access_token");
   const rt = frag.get("refresh_token");
   const sid = frag.get("session_id");
   if (at && rt) {
     tokens.set(at, rt, sid);
+    history.replaceState(null, "", "/");
+  }
+})();
+
+// ---- OAuth failure redirect (/auth/failure?error=...) ----
+(function handleOAuthFailure() {
+  if (!location.pathname.endsWith("/auth/failure")) return;
+  const err = new URLSearchParams(location.search).get("error");
+  sessionStorage.setItem("oauth_error", err || "unknown");
+  history.replaceState(null, "", "/");
+})();
+
+// ---- iOS app deep link (?from=ios or ?register=1) ----
+(function handleIosDeepLink() {
+  const params = new URLSearchParams(location.search);
+  if (params.get("from") === "ios" || params.get("register") === "1") {
+    sessionStorage.setItem("ios_register", "1");
     history.replaceState(null, "", "/");
   }
 })();
@@ -189,9 +207,26 @@ function render() {
   }
   document.getElementById("auth-section").hidden = authed;
   document.getElementById("app-section").hidden = !authed;
+  if (authed) {
+    sessionStorage.removeItem("ios_register");
+  }
   if (!authed) {
     const pendingReset = sessionStorage.getItem("reset_token");
-    showAuthView(pendingReset ? "reset-confirm" : "login");
+    const iosRegister = sessionStorage.getItem("ios_register");
+    const oauthErr = sessionStorage.getItem("oauth_error");
+    if (oauthErr) {
+      sessionStorage.removeItem("oauth_error");
+      showAuthView(iosRegister ? "register" : "login");
+      showAuthError(iosRegister ? "register-error" : "login-error", t("auth_oauth_failed"));
+    } else if (pendingReset) {
+      showAuthView("reset-confirm");
+    } else if (iosRegister) {
+      showAuthView("register");
+    } else {
+      showAuthView("login");
+    }
+    const iosHint = document.getElementById("ios-register-hint");
+    if (iosHint) iosHint.hidden = !iosRegister;
   }
   const bar = document.getElementById("user-bar");
   bar.textContent = authed ? "" : "";
@@ -308,7 +343,10 @@ document.getElementById("reset-confirm-back-btn").onclick = () => {
 document.querySelectorAll("#auth-section .oauth-btn").forEach((a) => {
   a.addEventListener("click", () => {
     document.getElementById("login-error").hidden = true;
-    setAuthLoading(true, "login-form");
+    const registerError = document.getElementById("register-error");
+    if (registerError) registerError.hidden = true;
+    const formId = a.closest("#register-view") ? "register-form" : "login-form";
+    setAuthLoading(true, formId);
   });
 });
 
@@ -1851,6 +1889,18 @@ function initSettings() {
       acct.hidden = false;
     } else {
       acct.hidden = true;
+    }
+  }
+  const syncEl = document.getElementById("settings-sync-status");
+  if (syncEl) {
+    if (_currentUser?.provider === "apple") {
+      syncEl.textContent = t("settings_sync_apple");
+      syncEl.hidden = false;
+    } else if (_currentUser) {
+      syncEl.textContent = t("settings_sync_local");
+      syncEl.hidden = false;
+    } else {
+      syncEl.hidden = true;
     }
   }
   const labelEl = document.getElementById("settings-version-label");

@@ -25,7 +25,7 @@ from .config import Settings, get_settings
 from .deps import current_user, current_user_id, get_db
 from .email_send import send_password_reset_email
 from .login_security import check_login_allowed, clear_login_attempts, record_failed_login
-from .models import RefreshToken, User
+from .models import OAuthIdentity, RefreshToken, User
 from .password_reset import consume_reset_token, count_recent_reset_requests, create_reset_token
 from .passwords import hash_password, validate_password_strength, verify_password
 
@@ -277,4 +277,13 @@ async def me(
         admin_emails=settings.admin_emails,
         admin_user_ids=settings.admin_user_ids,
     )
-    return UserPublic.model_validate(user).model_copy(update={"is_admin": admin})
+    identity = await db.scalar(
+        select(OAuthIdentity.provider)
+        .where(OAuthIdentity.user_id == user.id)
+        .order_by(OAuthIdentity.created_at)
+        .limit(1)
+    )
+    provider = identity if identity else ("local" if user.password_hash else "oauth")
+    return UserPublic.model_validate(user).model_copy(
+        update={"is_admin": admin, "provider": provider}
+    )

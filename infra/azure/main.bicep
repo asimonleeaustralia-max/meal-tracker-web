@@ -42,8 +42,14 @@ param googleClientId string = ''
 @secure()
 param googleClientSecret string = ''
 
-@description('Apple Sign-In Services ID (empty disables Apple login)')
+@description('Apple Sign-In Services ID (empty disables Apple web login)')
 param appleClientId string = ''
+@description('iOS bundle ID for native Sign in with Apple token verification')
+param appleIosClientId string = ''
+@description('Apple Developer Team ID (web OAuth client secret)')
+param appleTeamId string = ''
+@description('Sign in with Apple key ID (web OAuth)')
+param appleKeyId string = ''
 @secure()
 param applePrivateKey string = ''
 
@@ -59,6 +65,12 @@ param runpodApiKey string = ''
 
 @description('Public web URL used in password-reset emails')
 param passwordResetBaseUrl string = 'https://macrossimple.com'
+
+@description('Custom apex web hostname (TLS via managed certificate)')
+param customWebHostname string = 'macrossimple.com'
+
+@description('Custom API gateway hostname (TLS via managed certificate)')
+param customApiHostname string = 'api.macrossimple.com'
 
 
 // ───── Composed names ─────
@@ -241,9 +253,17 @@ resource authApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'JWT_SECRET',      secretRef: 'jwt-secret' }
             { name: 'SESSION_SECRET',  secretRef: 'jwt-secret' }
             { name: 'GOOGLE_CLIENT_ID',   value: googleClientId }
-            { name: 'APPLE_CLIENT_ID',    value: appleClientId }
+            { name: 'APPLE_CLIENT_ID',     value: appleClientId }
+            { name: 'APPLE_IOS_CLIENT_ID', value: appleIosClientId }
+            { name: 'APPLE_TEAM_ID',       value: appleTeamId }
+            { name: 'APPLE_KEY_ID',        value: appleKeyId }
             { name: 'FACEBOOK_CLIENT_ID', value: facebookClientId }
             { name: 'PASSWORD_RESET_BASE_URL', value: passwordResetBaseUrl }
+            { name: 'GOOGLE_REDIRECT_URI', value: 'https://${customApiHostname}/api/auth/oauth/google/callback' }
+            { name: 'APPLE_REDIRECT_URI', value: 'https://${customApiHostname}/api/auth/oauth/apple/callback' }
+            { name: 'FACEBOOK_REDIRECT_URI', value: 'https://${customApiHostname}/api/auth/oauth/facebook/callback' }
+            { name: 'OAUTH_SUCCESS_REDIRECT', value: 'https://${customWebHostname}/auth/success' }
+            { name: 'OAUTH_FAILURE_REDIRECT', value: 'https://${customWebHostname}/auth/failure' }
           ],
           empty(googleClientSecret)   ? [] : [{ name: 'GOOGLE_CLIENT_SECRET',   secretRef: 'google-secret' }],
           empty(applePrivateKey)      ? [] : [{ name: 'APPLE_PRIVATE_KEY',     secretRef: 'apple-key' }],
@@ -405,7 +425,7 @@ resource gatewayApp 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'MEAL_SERVICE_URL',      value: 'https://${namePrefix}-meal.internal.${env.properties.defaultDomain}' }
           { name: 'NUTRITION_SERVICE_URL', value: 'https://${namePrefix}-nutrition.internal.${env.properties.defaultDomain}' }
           { name: 'VISION_SERVICE_URL',    value: 'https://${namePrefix}-vision.internal.${env.properties.defaultDomain}' }
-          { name: 'CORS_ORIGINS',          value: '["https://${namePrefix}-web.${env.properties.defaultDomain}"]' }
+          { name: 'CORS_ORIGINS',          value: '["https://${customWebHostname}","https://www.${customWebHostname}"]' }
         ]
       }]
       scale: {
@@ -441,7 +461,7 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
         resources: { cpu: json('0.25'), memory: '0.5Gi' }
         env: [{
           name: 'API_GATEWAY_URL'
-          value: 'https://${gatewayApp.properties.configuration.ingress.fqdn}'
+          value: 'https://${customApiHostname}'
         }]
       }]
       scale: { minReplicas: 0, maxReplicas: 5 }

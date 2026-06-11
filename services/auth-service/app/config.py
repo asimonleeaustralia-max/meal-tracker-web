@@ -15,7 +15,8 @@ class Settings(BaseServiceSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8080/api/auth/oauth/google/callback"
 
-    apple_client_id: str = ""  # iOS bundle ID or web Services ID
+    apple_client_id: str = ""  # Apple Services ID (web OAuth)
+    apple_ios_client_id: str = ""  # iOS bundle ID (native token-exchange audience)
     apple_team_id: str = ""
     apple_key_id: str = ""
     apple_private_key: str = ""  # PEM contents

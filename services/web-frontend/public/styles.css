@@ -254,6 +254,24 @@ button.ghost {
   flex-shrink: 0;
 }
 .oauth-btn.apple { border-left: 4px solid #000; }
+.oauth-row--register { margin-top: 0; }
+.oauth-divider {
+  text-align: center;
+  font-size: 0.85rem;
+  margin: 12px 0 4px;
+}
+.ios-register-hint {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+.settings-sync-status {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  background: #f0f6ff;
+  border-radius: 6px;
+  border: 1px solid #c8daf7;
+  font-size: 0.9rem;
+}
 pre {
   background: #f6f8fa;
   padding: 12px;

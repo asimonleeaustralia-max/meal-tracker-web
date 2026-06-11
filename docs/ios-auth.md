@@ -71,18 +71,23 @@ Returns `200` with the same `TokenPair` shape as login (`access_token`, `refresh
 
 | Variable | Purpose |
 |----------|---------|
-| `APPLE_CLIENT_ID` | **iOS bundle ID** (e.g. `com.example.MealTracker`). Used as the `aud` claim when verifying the Apple ID token. Must match the App ID configured in Apple Developer → Identifiers. |
+| `APPLE_CLIENT_ID` | **Services ID** for web OAuth (e.g. `com.example.macrossimple.web`). |
+| `APPLE_IOS_CLIENT_ID` | **iOS bundle ID** (e.g. `com.example.MacrosSimple`). Used as the `aud` claim when verifying native Apple ID tokens. |
 | `APPLE_TEAM_ID` | Apple Developer Team ID (10-char). Required for the **browser** OAuth flow only; not needed for native `token-exchange`. |
 | `APPLE_KEY_ID` | Sign in with Apple key ID (browser flow). |
 | `APPLE_PRIVATE_KEY` | `.p8` private key contents (browser flow). |
 | `APPLE_REDIRECT_URI` | Callback URL for web OAuth (e.g. `https://api.example.com/api/auth/oauth/apple/callback`). |
 
-For native iOS sign-in, only **`APPLE_CLIENT_ID`** must be set correctly in dev and prod. Set it in `.env` / `docker-compose.yml` (local) or the auth Container App env (Azure).
+For native iOS sign-in, only **`APPLE_IOS_CLIENT_ID`** must be set correctly.
+For web **Continue with Apple**, also set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`,
+`APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY`. See `docs/ios-apple-registration.md`
+for the full iOS settings toggle and web deep-link flow.
 
 Local `docker-compose.yml` already wires `APPLE_CLIENT_ID` from the host environment:
 
 ```bash
-export APPLE_CLIENT_ID="com.yourcompany.MealTracker"
+export APPLE_IOS_CLIENT_ID="com.yourcompany.MacrosSimple"
+export APPLE_CLIENT_ID="com.yourcompany.macrossimple.web"   # web OAuth only
 docker compose up --build
 ```
 

@@ -76,9 +76,15 @@ Use a simple **last-write-wins, incremental pull** model:
    The server treats `PUT` as an upsert by ID. Use the same UUID Core Data
    already assigned so reconciliation is trivial.
 6. After a successful push, mark the Meal as synced locally by setting
-   `lastSyncGUID` to the value the server returns.
+   `lastSyncGUID` to the value the server returns. The server **always**
+   generates a new `last_sync_guid` (and bumps `updated_at`) on every
+   `POST /api/meals` and `PUT /api/meals/{id}` — clients must not rely on
+   sending their own sync marker.
 
 `PUT /api/meals/{id}` on a previously deleted meal clears `deleted_at` (restore).
+
+`person_id` on create/update must reference a `Person` owned by the same
+user; otherwise the server returns `400`.
 
 For a more robust model later (concurrent edits on multiple devices),
 consider adding a `version` integer that clients must include in PUTs.

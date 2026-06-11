@@ -76,6 +76,12 @@ Then:
 - Web frontend: <http://localhost:3000>
 - Each service exposes Swagger UI at `/docs` (e.g. <http://localhost:8001/docs>)
 
+Verify auth (signup → login → me → refresh):
+
+```bash
+./scripts/smoke-test-auth.sh   # expect: PASS
+```
+
 ## Deploying to Azure
 
 Follow **[`docs/azure-deployment.md`](docs/azure-deployment.md)** — step-by-step, copy-pasteable Azure CLI commands. Step 15 covers pointing a GoDaddy domain at the deployed app with a free managed TLS certificate.

@@ -22,6 +22,24 @@ from .models import Meal, Person
 router = APIRouter(prefix="/meals", tags=["meals"])
 
 
+def _stamp_meal_sync(meal: Meal) -> None:
+    """Assign a fresh server sync marker and bump updated_at."""
+    meal.last_sync_guid = uuid.uuid4().hex
+    meal.updated_at = datetime.now(UTC)
+
+
+async def _validate_person_id(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    person_id: uuid.UUID | None,
+) -> None:
+    if person_id is None:
+        return
+    person = await db.get(Person, person_id)
+    if person is None or person.user_id != user_id:
+        raise HTTPException(status_code=400, detail="person_id does not belong to this user")
+
+
 # ----------------------------- Meals -----------------------------
 
 @router.get("", response_model=list[MealSchema])
@@ -57,10 +75,12 @@ async def create_meal(
     user_id: uuid.UUID = Depends(current_user_id),
 ) -> MealSchema:
     data = payload.model_dump(exclude_unset=False, exclude_none=False)
+    await _validate_person_id(db, user_id, data.get("person_id"))
     # Honour client-supplied id (iOS already has UUIDs)
     if data.get("id") is None:
         data.pop("id", None)
     meal = Meal(user_id=user_id, **data)
+    _stamp_meal_sync(meal)
     db.add(meal)
     await db.flush()
     await db.refresh(meal)
@@ -88,6 +108,7 @@ async def upsert_meal(
 ) -> MealSchema:
     meal = await db.get(Meal, meal_id)
     data = payload.model_dump(exclude_unset=False)
+    await _validate_person_id(db, user_id, data.get("person_id"))
     if meal is None:
         data.pop("id", None)
         meal = Meal(id=meal_id, user_id=user_id, **data)
@@ -100,6 +121,7 @@ async def upsert_meal(
                 continue
             setattr(meal, key, value)
         meal.deleted_at = None
+    _stamp_meal_sync(meal)
     await db.flush()
     await db.refresh(meal)
     return MealSchema.model_validate(meal)

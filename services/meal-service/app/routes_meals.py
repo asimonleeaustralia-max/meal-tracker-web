@@ -145,18 +145,48 @@ async def delete_meal(
 people_router = APIRouter(prefix="/people", tags=["people"])
 
 
-async def _ensure_default_person(db: AsyncSession, user_id: uuid.UUID) -> None:
+def _stamp_person_sync(person: Person) -> None:
+    """Bump updated_at so incremental ?since= pulls pick up the change."""
+    person.updated_at = datetime.now(UTC)
+
+
+async def _ensure_default_person(db: AsyncSession, user_id: uuid.UUID) -> Person:
     """Create a default 'Me' person when the user has none (first-login bootstrap)."""
-    count = (
+    existing = (
         await db.execute(
-            select(Person.id).where(Person.user_id == user_id).limit(1)
+            select(Person)
+            .where(
+                Person.user_id == user_id,
+                Person.is_removed.is_(False),
+                Person.deleted_at.is_(None),
+            )
+            .order_by(Person.is_default.desc())
+            .limit(1)
         )
     ).scalar_one_or_none()
-    if count is not None:
-        return
+    if existing is not None:
+        return existing
     person = Person(user_id=user_id, name="Me", is_default=True, is_removed=False)
     db.add(person)
     await db.flush()
+    return person
+
+
+async def _get_default_person(db: AsyncSession, user_id: uuid.UUID) -> Person:
+    """Return the user's default person, creating one if needed."""
+    row = (
+        await db.execute(
+            select(Person).where(
+                Person.user_id == user_id,
+                Person.is_default.is_(True),
+                Person.is_removed.is_(False),
+                Person.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if row is not None:
+        return row
+    return await _ensure_default_person(db, user_id)
 
 
 @people_router.get("", response_model=list[PersonSchema])
@@ -229,6 +259,54 @@ async def upsert_person(
         person.deleted_at = datetime.now(UTC)
     elif not person.is_removed:
         person.deleted_at = None
+    _stamp_person_sync(person)
     await db.flush()
     await db.refresh(person)
     return PersonSchema.model_validate(person)
+
+
+@people_router.delete("/{person_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+async def delete_person(
+    person_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(current_user_id),
+) -> None:
+    person = await db.get(Person, person_id)
+    if person is None or person.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Person not found")
+    if person.is_removed:
+        return
+
+    default = await _get_default_person(db, user_id)
+    if default.id == person_id:
+        other = (
+            await db.execute(
+                select(Person).where(
+                    Person.user_id == user_id,
+                    Person.id != person_id,
+                    Person.is_removed.is_(False),
+                    Person.deleted_at.is_(None),
+                )
+            )
+        ).scalars().first()
+        if other is not None:
+            other.is_default = True
+            _stamp_person_sync(other)
+            default = other
+        else:
+            default = Person(user_id=user_id, name="Me", is_default=True, is_removed=False)
+            db.add(default)
+            await db.flush()
+
+    meals = (
+        await db.execute(select(Meal).where(Meal.person_id == person_id, Meal.user_id == user_id))
+    ).scalars().all()
+    for meal in meals:
+        meal.person_id = default.id
+        _stamp_meal_sync(meal)
+
+    person.is_removed = True
+    person.is_default = False
+    person.deleted_at = datetime.now(UTC)
+    _stamp_person_sync(person)
+    await db.flush()

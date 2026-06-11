@@ -121,8 +121,17 @@ Content-Type: application/json
 { "name": "Simon", "is_default": true, "is_removed": false }
 ```
 
-The server upserts by ID. To soft-delete, PUT with `is_removed: true`; the
-server also sets `deleted_at` for sync tombstones.
+The server upserts by ID. To soft-delete, either PUT with `is_removed: true`
+(the server also sets `deleted_at` for sync tombstones) or:
+
+```
+DELETE /api/people/{client-generated-UUID}
+```
+
+`DELETE` sets `is_removed: true`, bumps `updated_at`, and sets `deleted_at`.
+Meals that referenced the deleted person are reassigned to the user's default
+person (a new **"Me"** default is created if needed). The row is never
+hard-deleted while meals still reference it.
 
 ### First-login bootstrap
 

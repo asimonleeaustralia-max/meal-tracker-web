@@ -242,9 +242,7 @@ button.ghost {
   color: var(--fg);
   background: var(--card);
 }
-.oauth-btn.google   { border-left: 4px solid #4285f4; }
-.oauth-btn.apple    { border-left: 4px solid #000; }
-.oauth-btn.facebook { border-left: 4px solid #1877f2; }
+.oauth-btn.apple { border-left: 4px solid #000; }
 pre {
   background: #f6f8fa;
   padding: 12px;

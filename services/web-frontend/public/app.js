@@ -320,6 +320,7 @@ function validatePassword(password) {
 function setAuthLoading(busy, formId = "login-form") {
   const form = document.getElementById(formId);
   const loadingEl = document.getElementById("login-loading");
+  const waitingPage = document.getElementById("login-waiting-page");
   const submitBtn = form?.querySelector('button[type="submit"]');
   form?.querySelectorAll("input, button").forEach((el) => { el.disabled = busy; });
   if (submitBtn) submitBtn.disabled = busy;
@@ -327,7 +328,15 @@ function setAuthLoading(busy, formId = "login-form") {
     if (busy) a.setAttribute("aria-disabled", "true");
     else a.removeAttribute("aria-disabled");
   });
-  if (loadingEl) loadingEl.hidden = !busy;
+  if (formId === "login-form") {
+    if (waitingPage) waitingPage.hidden = !busy;
+    const header = document.querySelector("header");
+    const main = document.querySelector("main");
+    if (header) header.hidden = busy;
+    if (main) main.hidden = busy;
+  } else if (loadingEl) {
+    loadingEl.hidden = !busy;
+  }
   form?.setAttribute("aria-busy", busy ? "true" : "false");
 }
 

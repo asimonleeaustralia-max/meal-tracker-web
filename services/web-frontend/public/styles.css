@@ -145,6 +145,26 @@ button.ghost {
   font-size: 0.9rem;
   line-height: 1.45;
 }
+.login-waiting-page[hidden] {
+  display: none;
+}
+.login-waiting-page:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.login-waiting-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
 .auth-loading[hidden] {
   display: none;
 }
